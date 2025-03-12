@@ -1,6 +1,9 @@
 add_library(NanoSLib STATIC nanomsvc.cpp)
 add_library(NanoDLib SHARED nanomsvc.cpp)
 
+set_target_properties(NanoSLib PROPERTIES MSVC_RUNTIME_LIBRARY MultiThreaded$<$<CONFIG:Debug>:Debug>)
+set_target_properties(NanoDLib PROPERTIES MSVC_RUNTIME_LIBRARY MultiThreaded$<$<CONFIG:Debug>:Debug>DLL)
+
 target_compile_definitions(NanoSLib PRIVATE NANO_BUILDING_LIB)
 target_compile_definitions(NanoDLib PRIVATE NANO_BUILDING_LIB)
 target_compile_definitions(NanoDLib PUBLIC NANO_SHARED_BUILD)
