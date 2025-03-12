@@ -1,0 +1,31 @@
+name: NanoServer MSVC
+
+on: [push, workflow_dispatch]
+
+jobs:
+  run-nanoserver:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+    
+      - name: Setup Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@release/v1
+        with:
+          arch: x64
+          sdk: 10.0.22621.0
+          
+      - name: Build Dockerfile (default build-args)
+        shell: pwsh
+        run: |
+          docker build -t nanoserver-msvc-winsdk .
+
+      - name: Run container
+        shell: pwsh
+        run: |
+          $repoWorkspace = "${{ github.workspace }}" -replace "/", "\"
+          docker run -dit --name orphan `
+          -v "$repoWorkspace:C:\mount\source" `
+          -v "$env:VCToolsInstallDir:C:\mount\msvc" `
+          -v "$env:WindowsSdkDir:C:\mount\windowssdk" `
+          nanoserver-msvc-winsdk cmd
