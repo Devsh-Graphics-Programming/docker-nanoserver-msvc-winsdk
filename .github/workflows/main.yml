@@ -3,7 +3,7 @@ name: NanoServer MSVC
 on: [push, workflow_dispatch]
 
 jobs:
-  run-nanoserver:
+  run-nanoserver-msvc-winsdk-x64-build:
     runs-on: windows-latest
     steps:
       - name: Checkout Repository
@@ -35,7 +35,7 @@ jobs:
           Write-Host "MSVC Path: $vctoolsPath"
           Write-Host "Windows SDK Path: $windowsSdkPath"
         
-          docker run --rm -it --name orphan `
+          docker run --rm -dit --name orphan `
             -v "$repoWorkspace:C:\mount\source" `
             -v "$vctoolsPath:C:\mount\msvc" `
             -v "$windowsSdkPath:C:\mount\windowssdk" `
