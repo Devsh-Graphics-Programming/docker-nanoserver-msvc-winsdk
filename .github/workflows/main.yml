@@ -23,9 +23,20 @@ jobs:
       - name: Run container
         shell: pwsh
         run: |
-          $repoWorkspace = "${{ github.workspace }}" -replace "/", "\"
-          docker run -dit --name orphan `
-          -v "$repoWorkspace:C:\mount\source" `
-          -v "$env:VCToolsInstallDir:C:\mount\msvc" `
-          -v "$env:WindowsSdkDir:C:\mount\windowssdk" `
-          nanoserver-msvc-winsdk cmd
+          function Remove-Trailing-Backslash($path) {
+              return $path -replace '\\$', ''
+          }
+
+          $repoWorkspace = Remove-Trailing-Backslash("${{ github.workspace }}")
+          $vctoolsPath = Remove-Trailing-Backslash($env:VCToolsInstallDir)
+          $windowsSdkPath = Remove-Trailing-Backslash($env:WindowsSdkDir)
+
+          Write-Host "Source Path: $repoWorkspace"
+          Write-Host "MSVC Path: $vctoolsPath"
+          Write-Host "Windows SDK Path: $windowsSdkPath"
+        
+          docker run --rm -it --name orphan `
+            -v "$repoWorkspace:C:\mount\source" `
+            -v "$vctoolsPath:C:\mount\msvc" `
+            -v "$windowsSdkPath:C:\mount\windowssdk" `
+            nanoserver-msvc-winsdk cmd
