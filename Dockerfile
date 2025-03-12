@@ -15,20 +15,20 @@ ENV CMAKE_VERSION=${CMAKE_VERSION}
 ENV NINJA_VERSION=${NINJA_VERSION}
 ENV NASM_VERSION=${NASM_VERSION}
 
-RUN `
-curl -SL --output cmake.zip https://github.com/Kitware/CMake/releases/download/v%CMAKE_VERSION%/cmake-%CMAKE_VERSION%-windows-x86_64.zip `
+RUN mkdir C:\Temp && cd C:\Temp `
+&& curl -SL --output cmake.zip https://github.com/Kitware/CMake/releases/download/v%CMAKE_VERSION%/cmake-%CMAKE_VERSION%-windows-x86_64.zip `
 && mkdir "C:\CMake" `
 && tar -xf cmake.zip -C "C:\CMake" `
 && del /q cmake.zip
 
-RUN `
-curl -SL --output nasm.zip https://www.nasm.us/pub/nasm/releasebuilds/%NASM_VERSION%/win64/nasm-%NASM_VERSION%-win64.zip `
-&& mkdir "nasm" `
-&& tar -xf nasm.zip -C "nasm" `
+RUN cd C:\Temp `
+&& curl -SL --output nasm.zip https://www.nasm.us/pub/nasm/releasebuilds/%NASM_VERSION%/win64/nasm-%NASM_VERSION%-win64.zip `
+&& mkdir "C:\nasm" `
+&& tar -xf nasm.zip -C "C:\nasm" `
 && del /q nasm.zip
 
-RUN `
-curl -SL --output ninja.zip https://github.com/ninja-build/ninja/releases/download/v%NINJA_VERSION%/ninja-win.zip `
+RUN cd C:\Temp `
+&& curl -SL --output ninja.zip https://github.com/ninja-build/ninja/releases/download/v%NINJA_VERSION%/ninja-win.zip `
 && mkdir "C:\ninja" `
 && tar -xf ninja.zip -C "C:\ninja" `
 && del /q ninja.zip
