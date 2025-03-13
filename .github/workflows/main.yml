@@ -19,9 +19,6 @@ jobs:
         run: |
           curl -SL --output buildx.exe https://github.com/docker/buildx/releases/download/v0.22.0-rc1/buildx-v0.22.0-rc1.windows-amd64.exe
 
-      - uses: crazy-max/ghaction-github-runtime@v3
-      - uses: fawazahmed0/action-debug-vscode@main
-
       - name: Build Image
         shell: pwsh
         run: |
@@ -32,4 +29,6 @@ jobs:
         run: |
           $env:DOCKER_BUILDKIT=1
           $env:BUILDX_EXPERIMENTAL=1
-          .\buildx.exe build -f docker/xcache.dockerfile --cache-to type=gha --cache-from type=gha -t app:latest .
+          .\buildx.exe build --push -f docker/xcache.dockerfile --cache-to type=gha --cache-from type=gha -t app:latest .
+
+      - uses: fawazahmed0/action-debug-vscode@main
