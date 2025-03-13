@@ -30,5 +30,3 @@ jobs:
           $env:DOCKER_BUILDKIT=1
           $env:BUILDX_EXPERIMENTAL=1
           .\buildx.exe build --push -f docker/xcache.dockerfile --cache-to type=gha,mode=max --cache-from type=gha -t docker.io/library/app:latest .
-
-      - uses: fawazahmed0/action-debug-vscode@main
