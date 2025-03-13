@@ -1,2 +1,2 @@
 # escape=`
-FROM app:latest
+FROM docker.io/library/app:latest
