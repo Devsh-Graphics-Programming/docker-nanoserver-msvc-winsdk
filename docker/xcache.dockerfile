@@ -1,0 +1,2 @@
+# escape=`
+FROM app:latest
