@@ -44,9 +44,9 @@ jobs:
         run: |
           New-Item -Path build.log -ItemType File -Force
           docker build --cache-from app:latest -f docker/mount.dockerfile -t app:latest . | Tee-Object -FilePath build.log
-          $total_steps = (Get-Content build.log | Select-String -Pattern '^Step [0-9]+/' | Measure-Object).Count
           $cache_hits = (Get-Content build.log | Select-String -Pattern '---> Using cache' | Measure-Object).Count
-          if ($cache_hits -eq $total_steps) {
+          $steps_with_cache = (Get-Content build.log | Select-String -Pattern '^Step [0-9]+/' | Where-Object { $_ -notmatch 'FROM' } | Measure-Object).Count
+          if ($cache_hits -eq $steps_with_cache) {
             echo "FULL_CACHE_HIT=true" >> $env:GITHUB_ENV
             Write-Host "Full cache hit, all layers were used from source cache."
           } else {
