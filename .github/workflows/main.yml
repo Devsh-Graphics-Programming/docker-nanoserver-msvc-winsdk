@@ -19,19 +19,9 @@ jobs:
         run: |
           curl -SL --output buildx.exe https://github.com/docker/buildx/releases/download/v0.22.0-rc1/buildx-v0.22.0-rc1.windows-amd64.exe
 
-      - name: GHA Cache Check
-        shell: pwsh
-        run: |
-          $env:DOCKER_BUILDKIT=1
-          $env:BUILDX_EXPERIMENTAL=1
-          .\buildx.exe build -f docker/xcache.dockerfile --cache-to type=gha --cache-from type=gha -t app:latest .
-          if ($LASTEXITCODE -ne 0) { exit 0 }
-
       - name: Build Image
         shell: pwsh
         run: |
-          $env:DOCKER_BUILDKIT=0
-          $env:BUILDX_EXPERIMENTAL=0
           docker build -f docker/mount.dockerfile -t app:latest .
 
       - name: Cache Image with GHA
