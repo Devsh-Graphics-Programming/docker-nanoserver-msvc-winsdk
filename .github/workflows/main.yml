@@ -15,18 +15,34 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Download BuildKit
+      - name: Restore Cached Image TAR
+        uses: actions/cache@v4
+        with:
+          path: cache-image.tar
+          key: docker-image-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            docker-image-${{ runner.os }}-
+
+      - name: Load Cached Image
+        shell: pwsh
+        if: success() && hashFiles('cache-image.tar') != ''
         run: |
-          curl -SL --output buildx.exe https://github.com/docker/buildx/releases/download/v0.22.0-rc1/buildx-v0.22.0-rc1.windows-amd64.exe
+          docker load -i cache-image.tar
 
       - name: Build Image
         shell: pwsh
         run: |
           docker build -f docker/mount.dockerfile -t app:latest .
 
-      - name: Cache Image with GHA
+      - name: Save Docker Image to TAR
         shell: pwsh
         run: |
-          $env:DOCKER_BUILDKIT=1
-          $env:BUILDX_EXPERIMENTAL=1
-          .\buildx.exe build --push -f docker/xcache.dockerfile --cache-to type=gha,mode=max --cache-from type=gha -t app:latest .
+          docker save -o cache-image.tar app:latest
+
+      - name: Cache Image TAR
+        uses: actions/cache@v4
+        with:
+          path: cache-image.tar
+          key: docker-image-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            docker-image-${{ runner.os }}-
