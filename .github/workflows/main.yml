@@ -1,6 +1,12 @@
 name: NanoServer MSVC
 
-on: [push, workflow_dispatch]
+on:
+  push:
+    branches:
+      - master
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
   run-nanoserver-msvc-winsdk-x64-build:
@@ -8,35 +14,29 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-    
-      - name: Setup Developer Command Prompt
-        uses: ilammy/msvc-dev-cmd@release/v1
-        with:
-          arch: x64
-          sdk: 10.0.22621.0
-          
-      - name: Build Dockerfile (default build-args)
+
+      - name: Download BuildKit
+        run: |
+          curl -SL --output buildx.exe https://github.com/docker/buildx/releases/download/v0.22.0-rc1/buildx-v0.22.0-rc1.windows-amd64.exe
+
+      - name: GHA Cache Check
         shell: pwsh
         run: |
-          docker build -t nanoserver-msvc-winsdk .
+          $env:DOCKER_BUILDKIT=1
+          $env:BUILDX_EXPERIMENTAL=1
+          .\buildx.exe build -f docker/xcache.dockerfile --cache-to type=gha --cache-from type=gha -t app:latest .
+          if ($LASTEXITCODE -ne 0) { exit 0 }
 
-      - name: Run container
+      - name: Build Image
         shell: pwsh
         run: |
-          function Remove-Trailing-Backslash($path) {
-              return $path -replace '\\$', ''
-          }
+          $env:DOCKER_BUILDKIT=0
+          $env:BUILDX_EXPERIMENTAL=0
+          docker build -f docker/mount.dockerfile -t app:latest .
 
-          $repoWorkspace = Remove-Trailing-Backslash("${{ github.workspace }}")
-          $vctoolsPath = Remove-Trailing-Backslash($env:VCToolsInstallDir)
-          $windowsSdkPath = Remove-Trailing-Backslash($env:WindowsSdkDir)
-
-          Write-Host "Source Path: $repoWorkspace"
-          Write-Host "MSVC Path: $vctoolsPath"
-          Write-Host "Windows SDK Path: $windowsSdkPath"
-        
-          docker run --rm -dit --name orphan `
-            -v "$repoWorkspace:C:\mount\source" `
-            -v "$vctoolsPath:C:\mount\msvc" `
-            -v "$windowsSdkPath:C:\mount\windowssdk" `
-            nanoserver-msvc-winsdk cmd
+      - name: Cache Image with GHA
+        shell: pwsh
+        run: |
+          $env:DOCKER_BUILDKIT=1
+          $env:BUILDX_EXPERIMENTAL=1
+          .\buildx.exe build -f docker/xcache.dockerfile --cache-to type=gha --cache-from type=gha -t app:latest .
