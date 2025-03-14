@@ -32,6 +32,8 @@ jobs:
             echo "CACHE_HIT=true" >> $env:GITHUB_ENV
           }
 
+      - uses: fawazahmed0/action-debug-vscode@main
+
       - name: Build Image Without Cache
         if: env.CACHE_HIT != 'true'
         shell: pwsh
