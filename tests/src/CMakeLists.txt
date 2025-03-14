@@ -40,3 +40,11 @@ add_test(NAME NANO_EXE_D_TEST
 	COMMAND $<TARGET_FILE:NanoDExe>
 	COMMAND_EXPAND_LISTS
 )
+
+cmake_path(GET CMAKE_CXX_COMPILER PARENT_PATH CL_DIR)
+set_tests_properties(NANO_EXE_S_TEST NANO_EXE_D_TEST
+	# this allows me to fire tests with correct DLLs in search path,
+	# note you should distibute used redists or make sure your end 
+	# user install them system wide
+	PROPERTIES ENVIRONMENT_MODIFICATION PATH=path_list_prepend:${CL_DIR}
+)
