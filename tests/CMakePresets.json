@@ -1,0 +1,29 @@
+{
+    "version": 10,
+    "cmakeMinimumRequired": 
+    {
+        "major": 3,
+        "minor": 31,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "configure-msvc-winsdk",
+            "hidden": false,
+            "description": "Configure with MSVC & Windows Kits SDK, Ninja Multi-Config generator",
+            "generator": "Ninja Multi-Config",
+            "binaryDir": "${sourceDir}/build-ct",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/../cmake/winsdk-msvc-toolchain.cmake"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "build-msvc-winsdk",
+            "hidden": false,
+            "description": "Build with MSVC & Windows Kits SDK, Ninja Multi-Config generator",
+            "configurePreset": "configure-msvc-winsdk"
+        }
+    ]
+}
