@@ -47,10 +47,10 @@ PYTHON_VERSION=${PYTHON_VERSION} PYTHON_URL=https://www.python.org/ftp/python/${
 NINJA_VERSION=${NINJA_VERSION} NINJA_URL=https://github.com/ninja-build/ninja/releases/download/v${NINJA_VERSION}/ninja-win.zip NINJA_DIR=${NINJA_DIR} `
 NASM_VERSION=${NASM_VERSION} NASM_URL=https://www.nasm.us/pub/nasm/releasebuilds/${NASM_VERSION}/win64/nasm-${NASM_VERSION}-win64.zip NASM_DIR=${NASM_DIR}
 
-RUN mkdir "%CMAKE_DIR%" && curl -SL --output cmake.zip %CMAKE_URL% && tar -xf cmake.zip -C "%CMAKE_DIR%" && del cmake.zip
-RUN mkdir "%PYTHON_DIR%" && curl -SL --output python.zip %PYTHON_URL% && tar -xf python.zip -C "%PYTHON_DIR%" && del python.zip
-RUN mkdir "%NINJA_DIR%" && curl -SL --output ninja.zip %NINJA_URL% && tar -xf ninja.zip -C "%NINJA_DIR%" && del ninja.zip
-RUN mkdir "%NASM_DIR%" && curl -SL --output nasm.zip %NASM_URL% && tar -xf nasm.zip -C "%NASM_DIR%" && del nasm.zip
+RUN mkdir C:\Temp && cd C:\Temp && mkdir "%CMAKE_DIR%" && curl -SL --output cmake.zip %CMAKE_URL% && tar -xf cmake.zip -C "%CMAKE_DIR%" && del cmake.zip
+RUN cd C:\Temp && mkdir "%PYTHON_DIR%" && curl -SL --output python.zip %PYTHON_URL% && tar -xf python.zip -C "%PYTHON_DIR%" && del python.zip
+RUN cd C:\Temp && mkdir "%NINJA_DIR%" && curl -SL --output ninja.zip %NINJA_URL% && tar -xf ninja.zip -C "%NINJA_DIR%" && del ninja.zip
+RUN cd C:\Temp && mkdir "%NASM_DIR%" && curl -SL --output nasm.zip %NASM_URL% && tar -xf nasm.zip -C "%NASM_DIR%" && del nasm.zip
 
 RUN cd %BUILD_TOOLS_DIR% && "%PYTHON_DIR%\python.exe" -c "import json, os; env=json.load(open('./env.json')); [os.system(f'setx {k} \"{v}\"') for k,v in env.items()]" `
 && setx PATH "%CMAKE_DIR%\cmake-%CMAKE_VERSION%-windows-x86_64\bin;%PYTHON_DIR%;%NINJA_DIR%;%NASM_DIR%\nasm-%NASM_VERSION%;%PATH%" `
