@@ -32,37 +32,20 @@ jobs:
             echo "CACHE_HIT=true" >> $env:GITHUB_ENV
           }
 
-      - uses: fawazahmed0/action-debug-vscode@main
-
       - name: Build Image Without Cache
         if: env.CACHE_HIT != 'true'
         shell: pwsh
         run: |
           docker build -t app:latest .
-
-      - name: Build Image With Cache
-        if: env.CACHE_HIT == 'true'
-        shell: pwsh
-        run: |
-          New-Item -Path build.log -ItemType File -Force
-          docker build --cache-from app:latest -t app:latest . | Tee-Object -FilePath build.log
-          $cache_hits = (Get-Content build.log | Select-String -Pattern '---> Using cache' | Measure-Object).Count
-          $steps_with_cache = (Get-Content build.log | Select-String -Pattern '^Step [0-9]+/' | Where-Object { $_ -notmatch 'FROM' } | Measure-Object).Count
-          if ($cache_hits -eq $steps_with_cache) {
-            echo "FULL_CACHE_HIT=true" >> $env:GITHUB_ENV
-            Write-Host "Full cache hit, all layers were used from source cache."
-          } else {
-            Write-Host "Partial cache hit, some layers were rebuilt."
-          }
-
+          
       - name: Save Docker Image to TAR
-        if: env.FULL_CACHE_HIT != 'true'
+        if: env.CACHE_HIT != 'true'
         shell: pwsh
         run: |
           docker save -o cache-image.tar app:latest
       
       - name: Cache Image TAR
-        if: env.FULL_CACHE_HIT != 'true'
+        if: env.CACHE_HIT != 'true'
         uses: actions/cache@v4
         with:
           path: cache-image.tar
