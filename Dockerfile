@@ -1,6 +1,6 @@
 # escape=`
 
-FROM --platform=windows/amd64 mcr.microsoft.com/windows/servercore:ltsc2025 AS BUILD_TOOLS
+FROM --platform=windows/amd64 mcr.microsoft.com/windows/servercore:ltsc2022 AS BUILD_TOOLS
 
 ARG WINDOWS_11_SDK_VERSION="22621"
 ARG VC_VERSION="14.42.17.12"
