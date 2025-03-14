@@ -61,14 +61,14 @@ jobs:
       - name: Nano Container - Configure CMake Project
         shell: pwsh
         run: |
-          docker exec -it orphan cd "C:\app\tests" && cmake --preset configure-msvc-winsdk
+          docker exec -i orphan cd "C:\app\tests" && cmake --preset configure-msvc-winsdk
 
       - name: Nano Container - Build the Project
         shell: pwsh
         run: |
-          docker exec -it orphan cd "C:\app\tests" && cmake --build --preset build-msvc-winsdk --config Release
+          docker exec -i orphan cd "C:\app\tests" && cmake --build --preset build-msvc-winsdk --config Release
 
       - name: Nano Container - Test the Project
         shell: pwsh
         run: |
-          docker exec -it orphan cd "C:\app\tests\build\src" && ctest -C Release --stop-on-failure --verbose
+          docker exec -i orphan cd "C:\app\tests\build\src" && ctest -C Release --stop-on-failure --verbose
