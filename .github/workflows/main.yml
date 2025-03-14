@@ -56,8 +56,7 @@ jobs:
       - name: Run Nano Container
         shell: pwsh
         run: |
-          $workspace = "${{ github.workspace }}"
-          docker run -dit --name orphan -v "$workspace:C:\app" app:latest
+          docker run -dit --name orphan -v "${{ github.workspace }}:C:\app" app:latest
 
       - name: Nano Container - Configure CMake Project
         shell: pwsh
