@@ -41,6 +41,13 @@ jobs:
           Get-ChildItem -Path "linux" -Recurse | ForEach-Object { $_.FullName.Replace($PWD.Path, "").Replace("\", "/") }
           Write-Host "===================================" -ForegroundColor Cyan
 
+          Write-Output "`n" | & .\alpinetest\Alpine.exe
+          wsl -s Alpine
+          wsl apk add docker
+          wsl dockerd &> /dockerd-log &
+          wsl sh -c 'i=0; while [ $i -lt 15 ]; do sleep 1; docker info > /dev/null 2>&1 && echo "Daemon running!" && break; i=$((i+1)); done; [ $i -eq 15 ] && exit 1 || exit 0'
+          wsl docker run -d -p 5000:5000 --name registry registry:2.8.3
+
       - uses: fawazahmed0/action-debug-vscode@main
 
       - name: Restore Cached Image TAR
