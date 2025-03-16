@@ -20,7 +20,7 @@ jobs:
         run: |
           wsl --set-default-version 2
           $wslConfigPath = "$env:USERPROFILE\.wslconfig"
-          $kernelPath = ("${{ github.workspace }}" + "\linux\bzImage") -replace "\\", "\\\\"
+          $kernelPath = ("${{ github.workspace }}\linux\bzImage").Replace("\", "\\")
 
           $wslConfigContent = @"
           [wsl2]
