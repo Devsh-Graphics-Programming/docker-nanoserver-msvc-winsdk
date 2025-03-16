@@ -45,7 +45,7 @@ jobs:
           wsl -s Alpine
           wsl apk add docker
           wsl dockerd &> /dockerd-log &
-          wsl sh -c i=0; while [ $i -lt 15 ]; do echo "[$i]: waiting for linux docker daemon.."; sleep 1; docker info > /dev/null 2>&1 && echo "Linux docker daemon running!" && exit 0; i=$((i+1)); done; echo "Failed to connect to linux docker daemon!"; exit 1
+          wsl sh -c 'i=0; while [ $i -lt 15 ]; do echo "[$i]: waiting for linux docker daemon.."; sleep 1; docker info > /dev/null 2>&1 && echo "Linux docker daemon running!" && exit 0; i=$((i+1)); done; echo "Failed to connect to linux docker daemon!"; exit 1'
           wsl docker run -d -p 5000:5000 --name registry registry:2.8.3
 
       - uses: fawazahmed0/action-debug-vscode@main
