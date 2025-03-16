@@ -29,6 +29,10 @@ jobs:
 
           $wslConfigContent | Set-Content -Path $wslConfigPath -Encoding UTF8 -Force
 
+          Write-Host "==== .wslconfig CONTENT ====" -ForegroundColor Green
+          Write-Host $wslConfigContent -ForegroundColor Green
+          Write-Host "============================" -ForegroundColor Green
+
           Invoke-WebRequest -Uri "https://github.com/yuk7/AlpineWSL/releases/download/3.21.3-0/Alpine.zip" -OutFile "Alpine.zip"
           Expand-Archive -Path "Alpine.zip" -DestinationPath "linux" -Force
           Invoke-WebRequest -Uri "https://github.com/Devsh-Graphics-Programming/WSL2-Linux-Kernel/releases/download/wsl2-kernel-13885376672/bzImage" -OutFile "linux/bzImage"
