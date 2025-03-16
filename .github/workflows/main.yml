@@ -41,7 +41,7 @@ jobs:
           Get-ChildItem -Path "linux" -Recurse | ForEach-Object { $_.FullName.Replace($PWD.Path, "").Replace("\", "/") }
           Write-Host "===================================" -ForegroundColor Cyan
 
-          Write-Output "`n" | & .\alpinetest\Alpine.exe
+          Write-Output "`n" | & .\linux\Alpine.exe
           wsl -s Alpine
           wsl apk add docker
           wsl dockerd &> /dockerd-log &
