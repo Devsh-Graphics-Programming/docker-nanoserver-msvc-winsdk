@@ -20,7 +20,7 @@ jobs:
         run: |
           wsl --set-default-version 2
           $wslConfigPath = "$env:USERPROFILE\.wslconfig"
-          $kernelPath = ("${{ github.workspace }}" + "\linux\bzImage") -replace "\", "\\"
+          $kernelPath = ("${{ github.workspace }}" + "\linux\bzImage") -replace "\\", "\\\\"
 
           $wslConfigContent = @"
           [wsl2]
@@ -32,6 +32,10 @@ jobs:
           Invoke-WebRequest -Uri "https://github.com/yuk7/AlpineWSL/releases/download/3.21.3-0/Alpine.zip" -OutFile "Alpine.zip"
           Expand-Archive -Path "Alpine.zip" -DestinationPath "linux" -Force
           Invoke-WebRequest -Uri "https://github.com/Devsh-Graphics-Programming/WSL2-Linux-Kernel/releases/download/wsl2-kernel-13885376672/bzImage" -OutFile "linux/bzImage"
+
+          Write-Host "==== LINUX WSL DIRECTORY STRUCTURE ====" -ForegroundColor Cyan
+          Get-ChildItem -Path "linux" -Recurse | ForEach-Object { $_.FullName.Replace($PWD.Path, "").Replace("\", "/") }
+          Write-Host "===================================" -ForegroundColor Cyan
 
       - uses: fawazahmed0/action-debug-vscode@main
 
