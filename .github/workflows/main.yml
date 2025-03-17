@@ -53,7 +53,7 @@ jobs:
           }
 
           Write-Host "Updating WSL..."
-          Start-Process -Wait "msiexec.exe" -ArgumentList "/i linux/wsi.msi /qn /norestart" -NoNewWindow -PassThru
+          Start-Process -Wait "msiexec.exe" -ArgumentList "/i linux/wsl.msi /qn /norestart" -NoNewWindow -PassThru
           
           if (!(Test-Path "linux/bzImage")) {
             Write-Host "linux/bzImage not found in cache, downloading..."
