@@ -30,7 +30,7 @@ jobs:
       - name: Configure WSL
         shell: pwsh
         run: |
-          wsl/setup-wsl.ps1 -WorkspaceDir "${{ github.workspace }}"
+          wsl/setup-wsl.ps1
 
       - name: Save WSL Kernel & VHDX to Cache
         uses: actions/cache@v4
