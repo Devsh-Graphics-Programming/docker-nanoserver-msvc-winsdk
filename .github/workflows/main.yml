@@ -32,8 +32,6 @@ jobs:
         run: |
           wsl/setup-wsl.ps1
 
-      - uses: fawazahmed0/action-debug-vscode@main
-
       - name: Build docker image, cache to local registry
         if: env.REGISTRY_CACHE_HIT != 'true'
         shell: pwsh
