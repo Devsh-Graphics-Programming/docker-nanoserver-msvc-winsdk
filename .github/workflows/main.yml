@@ -79,8 +79,8 @@ jobs:
             ./wsl/wait-for-daemon.ps1
             wsl docker pull registry:2.8.3
           } else {
-            Write-Host "ext4.vhdx found in cache, skipping download & importing the instance!"
-            wsl --import-in-place Alpine ${{ github.workspace }}\linux\$ext4Cached
+            Write-Host "ext4.vhdx found in cache, skipping download & importing linux\ext4.vhdx!"
+            wsl --import-in-place Alpine ${{ github.workspace }}\linux\ext4.vhdx
             wsl -s Alpine
           }
 
