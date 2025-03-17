@@ -32,6 +32,46 @@ jobs:
         run: |
           wsl/setup-wsl.ps1
 
+      - name: Build docker image, cache to local registry
+        if: env.REGISTRY_CACHE_HIT != 'true'
+        shell: pwsh
+        run: |
+          docker build -t app:latest .
+          docker tag app:latest localhost:5000/app:latest
+          wsl dockerd &> dockerd-logfile &
+          wsl/wait-for-daemon.ps1
+          wsl docker run -d -p 5000:5000 --name registry registry:2.8.3
+          docker push localhost:5000/app:latest
+
+      - name: Pull cached docker image from local registry
+        if: env.REGISTRY_CACHE_HIT == 'true'
+        shell: pwsh
+        run: |
+          wsl dockerd &> dockerd-logfile &
+          wsl/wait-for-daemon.ps1
+          wsl docker run -d -p 5000:5000 --name registry registry:2.8.3
+          docker pull localhost:5000/app:latest
+          
+      - name: Run Nano Container
+        shell: pwsh
+        run: |
+          docker run -di --name orphan -v "${{ github.workspace }}:C:\app" app:latest
+
+      - name: Nano Container - Configure CMake Project
+        shell: pwsh
+        run: |
+          docker exec -w "C:\app\tests" -i orphan cmd /c cmake --preset configure-msvc-winsdk
+
+      - name: Nano Container - Build the Project
+        shell: pwsh
+        run: |
+          docker exec -w "C:\app\tests" -i orphan cmd /c cmake --build --preset build-msvc-winsdk --config Release
+
+      - name: Nano Container - Test the Project
+        shell: pwsh
+        run: |
+          docker exec -w "C:\app\tests\build\src" -i orphan cmd /c ctest -C Release --stop-on-failure --verbose
+
       - name: Shutdown WSL
         shell: pwsh
         run: |
