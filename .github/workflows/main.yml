@@ -22,6 +22,7 @@ jobs:
           path: |
             linux/bzImage
             linux/ext4.vhdx
+            linux/wsl.msi
           key: wsl-files-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
             wsl-files-${{ runner.os }}-
@@ -45,16 +46,23 @@ jobs:
           Write-Host "============================" -ForegroundColor Green
 
           if (!(Test-Path "linux")) { New-Item -ItemType Directory -Path "linux" | Out-Null }
+
+          if (!(Test-Path "linux/wsl.msi")) {
+            Write-Host "linux/wsl.msi not found in cache, downloading..."
+            Invoke-WebRequest -Uri "https://github.com/microsoft/WSL/releases/download/2.4.12/wsl.2.4.12.0.x64.msi" -OutFile "linux/wsl.msi"
+          }
+
+          Start-Process -Wait "msiexec.exe" -ArgumentList "/i linux/wsl.msi /qn /norestart" -NoNewWindow -PassThru
           
           if (!(Test-Path "linux/bzImage")) {
-            Write-Host "bzImage not found in cache, downloading..."
+            Write-Host "linux/bzImage not found in cache, downloading..."
             Invoke-WebRequest -Uri "https://github.com/Devsh-Graphics-Programming/WSL2-Linux-Kernel/releases/download/wsl2-kernel-13885376672/bzImage" -OutFile "linux/bzImage"
           } else {
             Write-Host "bzImage found in cache, skipping download."
           }
 
           if (!(Test-Path "linux/ext4.vhdx")) {
-            Write-Host "ext4.vhdx not found in cache, creating Alpine instance with docker registry..."
+            Write-Host "linux/ext4.vhdx not found in cache, creating Alpine instance with docker registry..."
             Invoke-WebRequest -Uri "https://github.com/yuk7/AlpineWSL/releases/download/3.21.3-0/Alpine.zip" -OutFile "Alpine.zip"
             Expand-Archive -Path "Alpine.zip" -DestinationPath "linux" -Force
             Write-Output "`n" | & .\linux\Alpine.exe
@@ -77,6 +85,7 @@ jobs:
           path: |
             linux/bzImage
             linux/ext4.vhdx
+            linux/wsl.msi
           key: wsl-files-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
             wsl-files-${{ runner.os }}-
