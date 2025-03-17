@@ -43,7 +43,8 @@ jobs:
           wsl dockerd &> dockerd-logfile &
           wsl/wait-for-daemon.ps1
           wsl docker run -d -p 5000:5000 --name registry registry:2.8.3
-          docker push localhost:5000/app:latest
+          Invoke-RestMethod -Uri "http://localhost:5000/v2/_catalog" -TimeoutSec 15 | ConvertTo-Json
+          docker push localhost:5000/app
 
       - name: Pull cached docker image from local registry
         if: env.REGISTRY_CACHE_HIT == 'true'
@@ -52,7 +53,8 @@ jobs:
           wsl dockerd &> dockerd-logfile &
           wsl/wait-for-daemon.ps1
           wsl docker run -d -p 5000:5000 --name registry registry:2.8.3
-          docker pull localhost:5000/app:latest
+          Invoke-RestMethod -Uri "http://localhost:5000/v2/_catalog" -TimeoutSec 15 | ConvertTo-Json
+          docker pull --disable-content-trust localhost:5000/app
           
       - name: Run Nano Container
         shell: pwsh
