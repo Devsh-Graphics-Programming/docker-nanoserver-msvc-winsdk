@@ -17,6 +17,10 @@ $bzImageCached = Test-Path $bzImagePath
 $ext4Cached = Test-Path $ext4Path
 $wslCached = Test-Path $wslInstaller
 
+if ($bzImageCached -and $ext4Cached -and $wslCached) {
+    echo "REGISTRY_CACHE_HIT=true" >> $env:GITHUB_ENV
+}
+
 if (-not $wslCached) {
     Write-Host "$wslInstaller not found in cache, downloading..."
     Invoke-WebRequest -Uri $WslMsiUrl -OutFile $wslInstaller
