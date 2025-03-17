@@ -1,9 +1,9 @@
 param (
-    [string]$WorkspaceDir
-    [string]$WslMsiUrl = "https://github.com/microsoft/WSL/releases/download/2.4.12/wsl.2.4.12.0.x64.msi"
-    [string]$AlpineZipUrl = "https://github.com/yuk7/AlpineWSL/releases/download/3.21.3-0/Alpine.zip"
-    [string]$LinuxKernelbzImageUrl = "https://github.com/Devsh-Graphics-Programming/WSL2-Linux-Kernel/releases/download/wsl2-kernel-13885376672/bzImage"
-    [string]$RegistryTag="2.8.3"
+    [string]$WorkspaceDir,
+    [string]$WslMsiUrl = "https://github.com/microsoft/WSL/releases/download/2.4.12/wsl.2.4.12.0.x64.msi",
+    [string]$AlpineZipUrl = "https://github.com/yuk7/AlpineWSL/releases/download/3.21.3-0/Alpine.zip",
+    [string]$LinuxKernelbzImageUrl = "https://github.com/Devsh-Graphics-Programming/WSL2-Linux-Kernel/releases/download/wsl2-kernel-13885376672/bzImage",
+    [string]$RegistryTag = "2.8.3"
 )
 
 $LinuxDir = "$WorkspaceDir\linux"
