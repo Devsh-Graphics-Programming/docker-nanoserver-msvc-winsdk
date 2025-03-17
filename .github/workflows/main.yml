@@ -15,6 +15,17 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Restore Cached WSL Kernel & VHDX
+        uses: actions/cache@v4
+        id: wsl_cache
+        with:
+          path: |
+            linux/bzImage
+            linux/ext4.vhdx
+          key: wsl-files-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            wsl-files-${{ runner.os }}-
+
       - name: Configure WSL environment
         shell: pwsh
         run: |
@@ -33,20 +44,40 @@ jobs:
           Write-Host $wslConfigContent -ForegroundColor Green
           Write-Host "============================" -ForegroundColor Green
 
-          Invoke-WebRequest -Uri "https://github.com/yuk7/AlpineWSL/releases/download/3.21.3-0/Alpine.zip" -OutFile "Alpine.zip"
-          Expand-Archive -Path "Alpine.zip" -DestinationPath "linux" -Force
-          Invoke-WebRequest -Uri "https://github.com/Devsh-Graphics-Programming/WSL2-Linux-Kernel/releases/download/wsl2-kernel-13885376672/bzImage" -OutFile "linux/bzImage"
+          if (!(Test-Path "linux")) { New-Item -ItemType Directory -Path "linux" | Out-Null }
+          
+          if (!(Test-Path "linux/bzImage")) {
+            Write-Host "bzImage not found in cache, downloading..."
+            Invoke-WebRequest -Uri "https://github.com/Devsh-Graphics-Programming/WSL2-Linux-Kernel/releases/download/wsl2-kernel-13885376672/bzImage" -OutFile "linux/bzImage"
+          } else {
+            Write-Host "bzImage found in cache, skipping download."
+          }
+
+          if (!(Test-Path "linux/ext4.vhdx")) {
+            Write-Host "ext4.vhdx not found in cache, creating Alpine instance with docker registry..."
+            Invoke-WebRequest -Uri "https://github.com/yuk7/AlpineWSL/releases/download/3.21.3-0/Alpine.zip" -OutFile "Alpine.zip"
+            Expand-Archive -Path "Alpine.zip" -DestinationPath "linux" -Force
+            Write-Output "`n" | & .\linux\Alpine.exe
+            wsl -s Alpine
+            wsl apk add docker
+            wsl nohup dockerd > /dockerd-log 2>&1 &
+            ./wsl/wait-for-daemon.ps1
+            wsl docker pull registry:2.8.3
+          } else {
+            Write-Host "ext4.vhdx found in cache, skipping download & importing the instance!"
+          }
 
           Write-Host "==== LINUX WSL DIRECTORY STRUCTURE ====" -ForegroundColor Cyan
           Get-ChildItem -Path "linux" -Recurse | ForEach-Object { $_.FullName.Replace($PWD.Path, "").Replace("\", "/") }
           Write-Host "===================================" -ForegroundColor Cyan
 
-          Write-Output "`n" | & .\linux\Alpine.exe
-          wsl -s Alpine
-          wsl apk add docker
-          wsl nohup dockerd > /dockerd-log 2>&1 &
-          ./wsl/wait-for-daemon.ps1
-          wsl docker run -d -p 5000:5000 --name registry registry:2.8.3
+      - name: Save WSL Kernel & VHDX to Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            linux/bzImage
+            linux/ext4.vhdx
+          key: wsl-files-${{ runner.os }}-${{ github.sha }}
 
       - uses: fawazahmed0/action-debug-vscode@main
 
