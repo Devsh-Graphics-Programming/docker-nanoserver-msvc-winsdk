@@ -27,6 +27,8 @@ jobs:
           restore-keys: |
             wsl-files-${{ runner.os }}-
 
+      - uses: fawazahmed0/action-debug-vscode@main
+
       - name: Configure WSL
         shell: pwsh
         run: |
