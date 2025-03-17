@@ -23,7 +23,7 @@ jobs:
             linux/bzImage
             linux/ext4.vhdx
             linux/wsl.msi
-          key: wsl-files-${{ runner.os }}-${{ github.sha }}
+          key: wsl-files-${{ runner.os }}-
           restore-keys: |
             wsl-files-${{ runner.os }}-
 
@@ -45,6 +45,4 @@ jobs:
             linux/bzImage
             linux/ext4.vhdx
             linux/wsl.msi
-          key: wsl-files-${{ runner.os }}-${{ github.sha }}
-          restore-keys: |
-            wsl-files-${{ runner.os }}-
+          key: wsl-files-${{ runner.os }}-
