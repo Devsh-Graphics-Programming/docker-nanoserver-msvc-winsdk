@@ -45,27 +45,7 @@ jobs:
           wsl -s Alpine
           wsl apk add docker
           wsl nohup dockerd > /dockerd-log 2>&1 &
-          
-          $linuxDockerReady = $false
-          $i = 0
-          $ticks = 15
-          while ($i -lt $ticks) {
-              Write-Host "[$i/$ticks]: waiting for Linux Docker daemon.."
-              Start-Sleep -Seconds 1
-              wsl docker info > $null 2>&1
-              if ($LASTEXITCODE -eq 0) {
-                  Write-Host "Linux Docker daemon running!" -ForegroundColor Green
-                  $linuxDockerReady = $true
-                  break
-              }
-              $i++
-          }
-          
-          if (-not $linuxDockerReady) {
-              Write-Host "Failed to connect to Linux Docker daemon!" -ForegroundColor Red
-              exit 1
-          }
-
+          ./wsl/wait-for-daemon.ps1
           wsl docker run -d -p 5000:5000 --name registry registry:2.8.3
 
       - uses: fawazahmed0/action-debug-vscode@main
