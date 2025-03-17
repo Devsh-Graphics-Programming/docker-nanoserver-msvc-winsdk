@@ -44,7 +44,7 @@ jobs:
           Write-Output "`n" | & .\linux\Alpine.exe
           wsl -s Alpine
           wsl apk add docker
-          wsl dockerd &> /dockerd-log &
+          wsl nohup dockerd > /dockerd-log 2>&1 &
           
           $linuxDockerReady = $false
           $i = 0
