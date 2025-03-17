@@ -38,7 +38,7 @@ jobs:
           }
 
           Write-Host "Updating WSL..."
-          Start-Process -Wait "msiexec.exe" -ArgumentList "/i linux/wsl.msi /qn /norestart" -NoNewWindow -PassThru
+          Start-Process -Wait "msiexec.exe" -ArgumentList "/i ${{ github.workspace }}\linux\wsl.msi /qn /norestart" -NoNewWindow -PassThru
           wsl --set-default-version 2
           
           $wslConfigPath = "$env:USERPROFILE\.wslconfig"
