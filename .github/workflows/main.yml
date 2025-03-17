@@ -78,5 +78,7 @@ jobs:
             linux/bzImage
             linux/ext4.vhdx
           key: wsl-files-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            wsl-files-${{ runner.os }}-
 
       - uses: fawazahmed0/action-debug-vscode@main
