@@ -30,7 +30,17 @@ jobs:
       - name: Configure WSL environment
         shell: pwsh
         run: |
+          if (!(Test-Path "linux")) { New-Item -ItemType Directory -Path "linux" | Out-Null }
+
+          if (!(Test-Path "linux/wsl.msi")) {
+            Write-Host "linux/wsl.msi not found in cache, downloading..."
+            Invoke-WebRequest -Uri "https://github.com/microsoft/WSL/releases/download/2.4.12/wsl.2.4.12.0.x64.msi" -OutFile "linux/wsl.msi"
+          }
+
+          Write-Host "Updating WSL..."
+          Start-Process -Wait "msiexec.exe" -ArgumentList "/i linux/wsl.msi /qn /norestart" -NoNewWindow -PassThru
           wsl --set-default-version 2
+          
           $wslConfigPath = "$env:USERPROFILE\.wslconfig"
           $kernelPath = ("${{ github.workspace }}\linux\bzImage").Replace("\", "\\")
 
@@ -44,16 +54,6 @@ jobs:
           Write-Host "==== .wslconfig CONTENT ====" -ForegroundColor Green
           Write-Host $wslConfigContent -ForegroundColor Green
           Write-Host "============================" -ForegroundColor Green
-
-          if (!(Test-Path "linux")) { New-Item -ItemType Directory -Path "linux" | Out-Null }
-
-          if (!(Test-Path "linux/wsl.msi")) {
-            Write-Host "linux/wsl.msi not found in cache, downloading..."
-            Invoke-WebRequest -Uri "https://github.com/microsoft/WSL/releases/download/2.4.12/wsl.2.4.12.0.x64.msi" -OutFile "linux/wsl.msi"
-          }
-
-          Write-Host "Updating WSL..."
-          Start-Process -Wait "msiexec.exe" -ArgumentList "/i linux/wsl.msi /qn /norestart" -NoNewWindow -PassThru
           
           if (!(Test-Path "linux/bzImage")) {
             Write-Host "linux/bzImage not found in cache, downloading..."
