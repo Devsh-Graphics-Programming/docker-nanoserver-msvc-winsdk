@@ -16,8 +16,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Restore Cached WSL Kernel & VHDX
-        uses: actions/cache@v4
-        id: wsl_cache
+        uses: actions/cache/restore@v4
+        id: restore-wsl
         with:
           path: |
             linux/bzImage
@@ -32,8 +32,14 @@ jobs:
         run: |
           wsl/setup-wsl.ps1
 
+      - name: Shutdown WSL
+        shell: pwsh
+        run: |
+          wsl --shutdown
+
       - name: Save WSL Kernel & VHDX to Cache
-        uses: actions/cache@v4
+        id: cache-wsl
+        uses: actions/cache/save@v4
         with:
           path: |
             linux/bzImage
@@ -42,5 +48,3 @@ jobs:
           key: wsl-files-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
             wsl-files-${{ runner.os }}-
-
-      - uses: fawazahmed0/action-debug-vscode@main
