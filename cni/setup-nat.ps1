@@ -13,9 +13,15 @@ $cniPluginVersion = "0.3.1"
 $cniBinDir = "$workspaceDir\buildkit\cni"
 $cniConfPath = "$cniBinDir\0-containerd-nat.conf"
 
-mkdir $cniBinDir -Force
-curl.exe -LO https://github.com/microsoft/windows-container-networking/releases/download/v$cniPluginVersion/windows-container-networking-cni-amd64-v$cniPluginVersion.zip
-Expand-Archive -Path windows-container-networking-cni-amd64-v$cniPluginVersion.zip -DestinationPath $cniBinDir -Force
+if (-Not (Test-Path "$cniConfPath")) {
+    Write-Host "📂 'cni' directory not found. Downloading and extracting cni binaries..."
+
+    mkdir $cniBinDir -Force
+    curl.exe -LO https://github.com/microsoft/windows-container-networking/releases/download/v$cniPluginVersion/windows-container-networking-cni-amd64-v$cniPluginVersion.zip
+    Expand-Archive -Path windows-container-networking-cni-amd64-v$cniPluginVersion.zip -DestinationPath $cniBinDir -Force
+} else {
+    Write-Host "✅ 'cni' directory already exists. Skipping download."
+}
 
 $natConfig = @"
 {
