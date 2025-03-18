@@ -37,7 +37,7 @@ jobs:
         id: restore-droot-cache
         with:
           path: |
-            droot.tar.zst
+            droot
           key: droot-${{ runner.os }}-
           restore-keys: |
             droot-${{ runner.os }}-
@@ -181,8 +181,6 @@ jobs:
       - name: Pack cache
         shell: pwsh
         run: |
-          tar --zstd -cvf buildkit.tar.zst buildkit
-          Write-Host "✅ packed buildkit!"
           tar --zstd -cvf droot.tar.zst droot
           Write-Host "✅ packed daemons root!"
 
@@ -200,7 +198,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: |
-            buildkit.tar.zst
+            buildkit
           key: buildkit-${{ runner.os }}-
           
       - name: Save Daemon Cache
