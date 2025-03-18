@@ -17,6 +17,11 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Setup environment
+        shell: pwsh
+        run: |
+          Set-MpPreference -DisableRealtimeMonitoring $true   
+
       - name: Restore Image Cache
         uses: actions/cache/restore@v4
         id: restore-buildkit
@@ -108,6 +113,33 @@ jobs:
               --export-cache type=local,dest=buildkit/.cache,mode=max ^
               --import-cache type=local,src=buildkit/.cache ^
               --opt target=buildtools
+
+      - name: Stop daemons
+        shell: pwsh
+        run: |
+            Write-Host "🔴 Stopping background jobs..."
+            if (Get-Job) {
+                Get-Job | Stop-Job -Force
+                Get-Job | Remove-Job -Force
+                Write-Host "✅ Background jobs stopped!"
+            } else {
+                Write-Host "⚠️ No background jobs found."
+            }
+
+            Write-Host "🔴 Stopping containerd and buildkitd..."
+            if (Get-Process -Name "containerd" -ErrorAction SilentlyContinue) {
+                Stop-Process -Name "containerd" -Force
+                Write-Host "✅ containerd stopped!"
+            } else {
+                Write-Host "⚠️ containerd is not running."
+            }
+            
+            if (Get-Process -Name "buildkitd" -ErrorAction SilentlyContinue) {
+                Stop-Process -Name "buildkitd" -Force
+                Write-Host "✅ buildkitd stopped!"
+            } else {
+                Write-Host "⚠️ buildkitd is not running."
+            }
 
       #- name: Build app image
       #  shell: cmd
