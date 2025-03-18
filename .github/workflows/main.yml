@@ -100,19 +100,19 @@ jobs:
             Wait-For "buildctl du"
 
       - name: Build images
-        shell: pwsh
-        run: |             
-            buildctl build --frontend=dockerfile.v0 --local context=. --local dockerfile=. `
-              --output=type=image,name=nano/base,push=false `
-              --export-cache=type=local,dest=buildkit/.cache,mode=max `
-              --import-cache=type=local,src=buildkit/.cache `
-              --opt=target=buildtools
+        shell: cmd
+        run: |
+            buildctl build --frontend=dockerfile.v0 --local context=. --local dockerfile=. ^
+              --output type=image,name=nano/base,push=false ^
+              --export-cache type=local,dest=buildkit/.cache,mode=max ^
+              --import-cache type=local,src=buildkit/.cache ^
+              --opt target=buildtools
 
-            buildctl build --frontend=dockerfile.v0 --local context=. --local dockerfile=. `             
-              --output=type=image,name=nano/app,push=false `
-              --export-cache=type=local,dest=buildkit/.cache,mode=max `
-              --import-cache=type=local,src=buildkit/.cache `
-              --opt=target=nano
+            buildctl build --frontend=dockerfile.v0 --local context=. --local dockerfile=. ^            
+              --output type=image,name=nano/app,push=false ^
+              --export-cache type=local,dest=buildkit/.cache,mode=max ^
+              --import-cache type=local,src=buildkit/.cache ^
+              --opt target=nano
 
       - uses: fawazahmed0/action-debug-vscode@main
             
