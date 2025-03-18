@@ -69,11 +69,11 @@ jobs:
                 Write-Host "📂 'buildkit' directory not found. Downloading and extracting daemons..."
 
                 New-Item -ItemType Directory -Path "buildkit" -Force
-                Invoke-WebRequest -Uri "https://github.com/moby/buildkit/releases/download/v0.20.1/buildkit-v0.20.1.windows-amd64.tar.gz" -OutFile "buildkit.tar.gz"
-                tar -xf buildkit.tar.gz -C buildkit
+                Invoke-WebRequest -Uri "https://github.com/moby/buildkit/releases/download/v0.20.1/buildkit-v0.20.1.windows-amd64.tar.gz" -OutFile "output.tar.gz"
+                tar -xf output.tar.gz -C buildkit
                 
-                Invoke-WebRequest -Uri "https://github.com/containerd/containerd/releases/download/v2.0.4/containerd-2.0.4-windows-amd64.tar.gz" -OutFile "containerd.tar.gz"
-                tar -xf containerd.tar.gz -C buildkit
+                Invoke-WebRequest -Uri "https://github.com/containerd/containerd/releases/download/v2.0.4/containerd-2.0.4-windows-amd64.tar.gz" -OutFile "output.tar.gz"
+                tar -xf output.tar.gz -C buildkit
             } else {
                 Write-Host "✅ 'buildkit' directory already exists. Skipping download."
             }
