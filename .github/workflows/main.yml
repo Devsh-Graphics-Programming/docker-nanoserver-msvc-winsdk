@@ -22,12 +22,13 @@ jobs:
         run: |
           Set-MpPreference -DisableRealtimeMonitoring $true   
 
-      - name: Restore Image Cache
+      - name: Restore Cache
         uses: actions/cache/restore@v4
-        id: restore-buildkit
+        id: restore-cache
         with:
           path: |
             buildkit
+            icache
             
           key: buildkit-${{ runner.os }}-
           restore-keys: |
@@ -108,13 +109,11 @@ jobs:
       - name: Build base image
         shell: cmd
         run: |
-            cd buildkit && buildctl build --frontend=dockerfile.v0 --local context=. --local dockerfile=.. ^
+            buildctl build --frontend=dockerfile.v0 --local context=. --local dockerfile=. ^
               --output type=image,name=nano/base,push=false ^
-              --export-cache type=local,dest=cache,mode=min ^
-              --import-cache type=local,src=cache ^
+              --export-cache=type=local,dest=icache,mode=max,compression=zstd,force-compression=true,image-manifest=true ^
+              --import-cache=type=local,src=icache ^
               --opt target=buildtools
-
-      - uses: fawazahmed0/action-debug-vscode@main
 
       - name: Stop daemons
         shell: pwsh
@@ -152,10 +151,11 @@ jobs:
       #        --import-cache type=local,src=buildkit/.cache ^
       #        --opt target=nano
             
-      - name: Save Image Cache
-        id: cache-buildkit
+      - name: Save Cache
+        id: cache-save
         uses: actions/cache/save@v4
         with:
           path: |
             buildkit
+            icache
           key: buildkit-${{ runner.os }}-
