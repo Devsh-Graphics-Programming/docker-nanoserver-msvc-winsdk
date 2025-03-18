@@ -28,6 +28,7 @@ jobs:
         with:
           path: |
             buildkit
+            buildkitd
             
           key: buildkit-${{ runner.os }}-
           restore-keys: |
@@ -89,6 +90,7 @@ jobs:
 
             $logs = "buildkit/logs"
             $cni = "${{ github.workspace }}\buildkit\cni"
+            $droot = "${{ github.workspace }}\buildkitd\root"
 
             Start-Job -ScriptBlock {
                 param($logs)
@@ -101,14 +103,15 @@ jobs:
             Wait-For "ctr --namespace buildkit image ls"
 
             Start-Job -ScriptBlock {
-                param($logs, $cni)
-                Start-Process buildkitd.exe `
-                  -ArgumentList @("--containerd-cni-config-path=$cni\0-containerd-nat.conf",
-                                  "--containerd-cni-binary-dir=$cni") `
-                  -RedirectStandardOutput "$logs/buildkitd.log" `
-                  -RedirectStandardError "$logs/buildkitd_error.log" `
-                  -NoNewWindow -PassThru
-            } -ArgumentList $logs, $cni
+              param($logs, $cni, $droot)
+              Start-Process buildkitd.exe `
+              -ArgumentList @("--containerd-cni-config-path=$cni\0-containerd-nat.conf",
+                              "--containerd-cni-binary-dir=$cni", `
+                              "--root=$droot") `
+              -RedirectStandardOutput "$logs/buildkitd.log" `
+              -RedirectStandardError "$logs/buildkitd_error.log" `
+              -NoNewWindow -PassThru
+              } -ArgumentList $logs, $cni, $droot
 
             Wait-For "buildctl du"
 
@@ -120,6 +123,11 @@ jobs:
               --export-cache=type=inline ^
               --import-cache=type=registry,ref=dr-private.devsh.eu/actions/cache/nano/base ^
               --opt target=buildtools
+
+      - name: Prune images
+        shell: pwsh
+        run: |
+          buildctl prune
 
       - name: Stop daemons
         shell: pwsh
@@ -163,4 +171,5 @@ jobs:
         with:
           path: |
             buildkit
+            buildkitd
           key: buildkit-${{ runner.os }}-
