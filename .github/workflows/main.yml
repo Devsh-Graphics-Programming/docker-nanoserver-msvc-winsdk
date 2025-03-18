@@ -54,12 +54,12 @@ jobs:
                     [int]$TotalTicks = 5 
                 )
           
-                Write-Host "⏳ Waiting for command: $Command (Max retries: $TotalTicks, Interval: ${TickWait}s)"
+                Write-Host "⏳ Waiting for command.. (Max retries: $TotalTicks, Interval: ${TickWait}s)"
                 
                 for ($i=1; $i -le $TotalTicks; $i++) {
-                    Write-Host "⏳ [$i/$TotalTicks]"
+                    Write-Host "⏳ [$i/$TotalTicks]: $Command"
                     if (Invoke-Expression $Command) {
-                        Write-Host "✅ Success: $Command"
+                        Write-Host "✅ Success!"
                         return $true
                     }
                     Start-Sleep -Seconds $TickWait
