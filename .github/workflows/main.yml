@@ -164,6 +164,8 @@ jobs:
             } else {
                 Write-Host "⚠️ buildkitd is not running."
             }
+            
+      - uses: fawazahmed0/action-debug-vscode@main
 
       #- name: Build app image
       #  shell: cmd
