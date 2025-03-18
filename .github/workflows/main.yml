@@ -72,8 +72,6 @@ jobs:
               -NoNewWindow -PassThru
 
             Wait-For "ctr --namespace buildkit image ls"
-              
-            .\cni\setup-nat.ps1
 
       - uses: fawazahmed0/action-debug-vscode@main
             
