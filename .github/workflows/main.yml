@@ -33,7 +33,8 @@ jobs:
         run: |
             if (-Not (Test-Path "buildkit")) {
                 Write-Host "📂 'buildkit' directory not found. Downloading and extracting daemons..."
-                
+
+                New-Item -ItemType Directory -Path "buildkit" -Force
                 Invoke-WebRequest -Uri "https://github.com/moby/buildkit/releases/download/v0.20.1/buildkit-v0.20.1.windows-amd64.tar.gz" -OutFile "buildkit.tar.gz"
                 tar -xf buildkit.tar.gz -C buildkit
                 
