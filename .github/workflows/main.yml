@@ -181,9 +181,9 @@ jobs:
       - name: Pack cache
         shell: pwsh
         run: |
-          tar --zstd -cvf buildkit.tar.zst .\buildkit\
+          tar --zstd -cvf buildkit.tar.zst "${{ github.workspace }}\buildkit"
           Write-Host "✅ packed buildkit!"
-          tar --zstd -cvf droot.tar.zst .\droot\
+          tar --zstd -cvf droot.tar.zst "${{ github.workspace }}\droot"
           Write-Host "✅ packed daemons root!"
 
       #- name: Build app image
