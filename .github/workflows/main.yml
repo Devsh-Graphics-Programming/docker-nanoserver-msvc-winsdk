@@ -40,12 +40,17 @@ jobs:
             Invoke-WebRequest -Uri "https://github.com/containerd/containerd/releases/download/v2.0.4/containerd-2.0.4-windows-amd64.tar.gz" -OutFile "containerd.tar.gz"
             tar -xf containerd.tar.gz -C buildkit
 
+            $Bin = "${{ github.workspace }}\buildkit\bin"
+            $CurrentPath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+            [System.Environment]::SetEnvironmentVariable("Path", "$CurrentPath;$Bin", "Machine")
+            $env:Path += ";$Bin"
+            
       - uses: fawazahmed0/action-debug-vscode@main
 
       - name: TEST
         shell: pwsh
         run: |    
-            Start-Process "buildkit/containerd.exe" `
+            Start-Process containerd.exe `
               -RedirectStandardOutput "buildkit/logs/containerd.log" `
               -RedirectStandardError "buildkit/logs/containerd_error.log" `
               -NoNewWindow -PassThru
@@ -58,7 +63,7 @@ jobs:
             
             .\cni\setup-nat.ps1
 
-            Start-Process "buildkit/buildkitd.exe" `
+            Start-Process buildkitd.exe `
               -ArgumentList @("--containerd-cni-config-path=${{ github.workspace }}\buildkit\containerd\cni\conf\0-containerd-nat.conf",
                               "--containerd-cni-binary-dir=${{ github.workspace }}\buildkit\containerd\cni\bin") `
               -RedirectStandardOutput "buildkit/logs/buildkitd.log" `
