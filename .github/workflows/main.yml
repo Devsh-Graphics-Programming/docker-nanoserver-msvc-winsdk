@@ -39,6 +39,8 @@ jobs:
             Invoke-WebRequest -Uri "https://github.com/containerd/containerd/releases/download/v2.0.4/containerd-2.0.4-windows-amd64.tar.gz" -OutFile "containerd.tar.gz"
             tar -xf containerd.tar.gz -C buildkit
 
+            .\cni\setup-nat.ps1
+
             $Bin = "${{ github.workspace }}\buildkit\bin"
             echo "PATH=$Bin;$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
@@ -47,9 +49,9 @@ jobs:
         run: |    
             function Wait-For {
                 param (
-                    [string]$Command,          # Command to run
-                    [int]$TickWait = 1,        # Wait time between retries (seconds) [Default: 1s]
-                    [int]$TotalTicks = 5       # Maximum retries before failure [Default: 5 retries]
+                    [string]$Command,          
+                    [int]$TickWait = 1,    
+                    [int]$TotalTicks = 5 
                 )
           
                 Write-Host "⏳ Waiting for command: $Command (Max retries: $TotalTicks, Interval: ${TickWait}s)"
@@ -66,12 +68,24 @@ jobs:
                 exit 1
             }
 
+            $logs = "buildkit/logs"
+            $cni = "${{ github.workspace }}\buildkit\cni"
+
             Start-Process containerd.exe `
-              -RedirectStandardOutput "buildkit/logs/containerd.log" `
-              -RedirectStandardError "buildkit/logs/containerd_error.log" `
+              -RedirectStandardOutput "$logs/containerd.log" `
+              -RedirectStandardError "$logs/containerd_error.log" `
               -NoNewWindow -PassThru
 
             Wait-For "ctr --namespace buildkit image ls"
+
+            Start-Process buildkitd.exe `
+              -ArgumentList @("--containerd-cni-config-path=$cni\0-containerd-nat.conf",
+                              "--containerd-cni-binary-dir=$cni") `
+              -RedirectStandardOutput "$logs/buildkitd.log" `
+              -RedirectStandardError "$logs/buildkitd_error.log" `
+              -NoNewWindow -PassThru
+
+            Wait-For "buildkit du"
 
       - uses: fawazahmed0/action-debug-vscode@main
             
