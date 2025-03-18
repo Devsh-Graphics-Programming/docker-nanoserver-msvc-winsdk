@@ -28,7 +28,7 @@ jobs:
           restore-keys: |
             buildkit-${{ runner.os }}-
 
-      - name: Setup Buildkit
+      - name: Setup buildkit
         shell: pwsh
         run: |
             if (-Not (Test-Path "buildkit")) {
@@ -99,20 +99,20 @@ jobs:
 
             Wait-For "buildctl du"
 
-      - name: Build Image
+      - name: Build images
         shell: pwsh
-        run: | 
-            $buildctl = "buildctl build --frontend=dockerfile.v0 --local context=. --local dockerfile=."
-            
-            & $buildctl --output type=image,name=nano/base,push=false `
-                        --export-cache type=local,dest=buildkit/.cache,mode=max `
-                        --import-cache type=local,src=buildkit/.cache `
-                        --opt target=buildtools
-                        
-            & $buildctl --output type=image,name=nano/app,push=false `
-                        --export-cache type=local,dest=buildkit/.cache,mode=max `
-                        --import-cache type=local,src=buildkit/.cache `
-                        --opt target=nano
+        run: |             
+            buildctl build --frontend=dockerfile.v0 --local context=. --local dockerfile=. `
+              --output type=image,name=nano/base,push=false `
+              --export-cache type=local,dest=buildkit/.cache,mode=max `
+              --import-cache type=local,src=buildkit/.cache `
+              --opt target=buildtools
+
+            buildctl build --frontend=dockerfile.v0 --local context=. --local dockerfile=. `             
+              --output type=image,name=nano/app,push=false `
+              --export-cache type=local,dest=buildkit/.cache,mode=max `
+              --import-cache type=local,src=buildkit/.cache `
+              --opt target=nano
 
       - uses: fawazahmed0/action-debug-vscode@main
             
