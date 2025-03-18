@@ -39,6 +39,8 @@ jobs:
                 
                 Invoke-WebRequest -Uri "https://github.com/containerd/containerd/releases/download/v2.0.4/containerd-2.0.4-windows-amd64.tar.gz" -OutFile "containerd.tar.gz"
                 tar -xf containerd.tar.gz -C buildkit
+            } else {
+                Write-Host "✅ 'buildkit' directory already exists. Skipping download."
             }
 
             .\cni\setup-nat.ps1
