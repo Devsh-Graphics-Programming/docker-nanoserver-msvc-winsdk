@@ -105,6 +105,8 @@ jobs:
 
             Wait-For "buildctl du"
 
+      - uses: fawazahmed0/action-debug-vscode@main
+
       - name: Build base image
         shell: cmd
         run: |
