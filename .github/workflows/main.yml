@@ -22,17 +22,25 @@ jobs:
         run: |
           Set-MpPreference -DisableRealtimeMonitoring $true   
 
-      - name: Restore Cache
+      - name: Restore BuildKit Cache
         uses: actions/cache/restore@v4
-        id: restore-cache
+        id: restore-buildkit-cache
         with:
           path: |
             buildkit
-            buildkitd
-            
           key: buildkit-${{ runner.os }}-
           restore-keys: |
             buildkit-${{ runner.os }}-
+
+      - name: Restore BuildKit daemon Cache
+        uses: actions/cache/restore@v4
+        id: restore-buildkitd-cache
+        with:
+          path: |
+            buildkitd
+          key: buildkitd-${{ runner.os }}-
+          restore-keys: |
+            buildkitd-${{ runner.os }}-
 
       - name: Log in to Container Registry
         uses: docker/login-action@v3
@@ -165,11 +173,18 @@ jobs:
       #        --import-cache type=local,src=buildkit/.cache ^
       #        --opt target=nano
             
-      - name: Save Cache
-        id: cache-save
+      - name: Save BuildKit Cache
+        id: save-buildkit-cache
         uses: actions/cache/save@v4
         with:
           path: |
             buildkit
-            buildkitd
           key: buildkit-${{ runner.os }}-
+          
+      - name: Save BuildKit daemon Cache
+        id: save-buildkitd-cache
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            buildkitd
+          key: buildkitd-${{ runner.os }}-
