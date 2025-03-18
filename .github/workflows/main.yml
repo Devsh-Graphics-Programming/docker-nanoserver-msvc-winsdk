@@ -21,40 +21,24 @@ jobs:
         shell: pwsh
         run: |
           Set-MpPreference -DisableRealtimeMonitoring $true   
-
       - name: Restore BuildKit Cache
         uses: actions/cache/restore@v4
         id: restore-buildkit-cache
         with:
           path: |
-            buildkit.tar
+            buildkit
           key: buildkit-${{ runner.os }}-
           restore-keys: |
             buildkit-${{ runner.os }}-
-
       - name: Restore Daemon Cache
         uses: actions/cache/restore@v4
         id: restore-droot-cache
         with:
           path: |
-            droot.tar
+            droot
           key: droot-${{ runner.os }}-
           restore-keys: |
             droot-${{ runner.os }}-
-
-      - name: Unpack cache artifacts
-        shell: pwsh
-        run: |
-            if ((Test-Path "buildkit.tar.zst")) {
-                tar -xvf buildkit.tar
-                Write-Host "✅ unpacked buildkit!"
-            }
-
-            if ((Test-Path "droot.tar.zst")) {
-                tar -xvf droot.tar
-                Write-Host "✅ unpacked daemons root!"
-            }
-
       - name: Log in to Container Registry
         uses: docker/login-action@v3
         with:
@@ -67,23 +51,19 @@ jobs:
         run: |
             if (-Not (Test-Path "buildkit")) {
                 Write-Host "📂 'buildkit' directory not found. Downloading and extracting daemons..."
-
                 New-Item -ItemType Directory -Path "buildkit" -Force
-                Invoke-WebRequest -Uri "https://github.com/moby/buildkit/releases/download/v0.20.1/buildkit-v0.20.1.windows-amd64.tar.gz" -OutFile "output.tar.gz"
-                tar -xf output.tar.gz -C buildkit
+                Invoke-WebRequest -Uri "https://github.com/moby/buildkit/releases/download/v0.20.1/buildkit-v0.20.1.windows-amd64.tar.gz" -OutFile "buildkit.tar.gz"
+                tar -xf buildkit.tar.gz -C buildkit
                 
-                Invoke-WebRequest -Uri "https://github.com/containerd/containerd/releases/download/v2.0.4/containerd-2.0.4-windows-amd64.tar.gz" -OutFile "output.tar.gz"
-                tar -xf output.tar.gz -C buildkit
+                Invoke-WebRequest -Uri "https://github.com/containerd/containerd/releases/download/v2.0.4/containerd-2.0.4-windows-amd64.tar.gz" -OutFile "containerd.tar.gz"
+                tar -xf containerd.tar.gz -C buildkit
             } else {
                 Write-Host "✅ 'buildkit' directory already exists. Skipping download."
             }
-
             .\cni\setup-nat.ps1
-
             New-Item -ItemType Directory -Path "buildkit/logs" -Force
             $Bin = "${{ github.workspace }}\buildkit\bin"
             echo "PATH=$Bin;$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-
       - name: Run daemons
         shell: pwsh
         run: |    
@@ -108,11 +88,9 @@ jobs:
                 Write-Error "❌ Timeout: $Command did not succeed!"
                 exit 1
             }
-
             $logs = "buildkit/logs"
             $cni = "${{ github.workspace }}\buildkit\cni"
             $droot = "${{ github.workspace }}\droot"
-
             Start-Job -ScriptBlock {
                 param($logs, $droot)
                 Start-Process containerd.exe `
@@ -121,9 +99,7 @@ jobs:
                   -RedirectStandardError "$logs/containerd_error.log" `
                   -NoNewWindow -PassThru
             } -ArgumentList $logs, $droot
-
             Wait-For "ctr --namespace buildkit image ls"
-
             Start-Job -ScriptBlock {
               param($logs, $cni, $droot)
               Start-Process buildkitd.exe `
@@ -134,9 +110,7 @@ jobs:
               -RedirectStandardError "$logs/buildkitd_error.log" `
               -NoNewWindow -PassThru
               } -ArgumentList $logs, $cni, $droot
-
             Wait-For "buildctl du"
-
       - name: Build base image
         shell: cmd
         run: |
@@ -145,12 +119,10 @@ jobs:
               --export-cache=type=inline ^
               --import-cache=type=registry,ref=dr-private.devsh.eu/actions/cache/nano/base ^
               --opt target=buildtools
-
       - name: Prune images
         shell: pwsh
         run: |
           buildctl prune
-
       - name: Stop daemons
         shell: pwsh
         run: |
@@ -162,7 +134,6 @@ jobs:
             } else {
                 Write-Host "⚠️ No background jobs found."
             }
-
             Write-Host "🔴 Stopping containerd and buildkitd..."
             if (Get-Process -Name "containerd" -ErrorAction SilentlyContinue) {
                 Stop-Process -Name "containerd" -Force
@@ -177,15 +148,6 @@ jobs:
             } else {
                 Write-Host "⚠️ buildkitd is not running."
             }
-
-      - name: Pack cache
-        shell: pwsh
-        run: |
-          tar -cvf buildkit.tar buildkit
-          Write-Host "✅ packed buildkit!"
-          tar -cvf droot.tar droot
-          Write-Host "✅ packed daemons root!"
-
       #- name: Build app image
       #  shell: cmd
       #  run: |
@@ -200,7 +162,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: |
-            buildkit.tar
+            buildkit
           key: buildkit-${{ runner.os }}-
           
       - name: Save Daemon Cache
@@ -208,5 +170,5 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: |
-            droot.tar
+            droot
           key: droot-${{ runner.os }}-
