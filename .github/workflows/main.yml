@@ -75,15 +75,6 @@ jobs:
               
             .\cni\setup-nat.ps1
 
-            Start-Process buildkitd.exe `
-              -ArgumentList @("--containerd-cni-config-path=${{ github.workspace }}\buildkit\containerd\cni\conf\0-containerd-nat.conf",
-                              "--containerd-cni-binary-dir=${{ github.workspace }}\buildkit\containerd\cni\bin") `
-              -RedirectStandardOutput "buildkit/logs/buildkitd.log" `
-              -RedirectStandardError "buildkit/logs/buildkitd_error.log" `
-              -NoNewWindow -PassThru
-
-            Wait-For "buildkit du"
-
       - uses: fawazahmed0/action-debug-vscode@main
             
       - name: Save Image Cache
