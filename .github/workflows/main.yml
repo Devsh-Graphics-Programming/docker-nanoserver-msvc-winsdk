@@ -31,7 +31,6 @@ jobs:
       - name: Setup Buildkit
         shell: pwsh
         run: |
-            # Create required directories
             New-Item -ItemType Directory -Path "buildkit/logs" -Force
 
             Invoke-WebRequest -Uri "https://github.com/moby/buildkit/releases/download/v0.20.1/buildkit-v0.20.1.windows-amd64.tar.gz" -OutFile "buildkit.tar.gz"
@@ -41,9 +40,7 @@ jobs:
             tar -xf containerd.tar.gz -C buildkit
 
             $Bin = "${{ github.workspace }}\buildkit\bin"
-            $CurrentPath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
-            [System.Environment]::SetEnvironmentVariable("Path", "$CurrentPath;$Bin", "Machine")
-            $env:Path += ";$Bin"
+            echo "PATH=$Bin;$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
             
       - uses: fawazahmed0/action-debug-vscode@main
 
