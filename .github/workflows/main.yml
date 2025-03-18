@@ -27,7 +27,7 @@ jobs:
         id: restore-buildkit-cache
         with:
           path: |
-            buildkit.tar.zst
+            buildkit.tar
           key: buildkit-${{ runner.os }}-
           restore-keys: |
             buildkit-${{ runner.os }}-
@@ -37,7 +37,7 @@ jobs:
         id: restore-droot-cache
         with:
           path: |
-            droot
+            droot.tar
           key: droot-${{ runner.os }}-
           restore-keys: |
             droot-${{ runner.os }}-
@@ -46,12 +46,12 @@ jobs:
         shell: pwsh
         run: |
             if ((Test-Path "buildkit.tar.zst")) {
-                tar --zstd -xvf buildkit.tar.zst
+                tar -xvf buildkit.tar
                 Write-Host "✅ unpacked buildkit!"
             }
 
             if ((Test-Path "droot.tar.zst")) {
-                tar --zstd -xvf droot.tar.zst
+                tar -xvf droot.tar
                 Write-Host "✅ unpacked daemons root!"
             }
 
@@ -181,7 +181,9 @@ jobs:
       - name: Pack cache
         shell: pwsh
         run: |
-          tar --zstd -cvf droot.tar.zst droot
+          tar -cvf buildkit.tar buildkit
+          Write-Host "✅ packed buildkit!"
+          tar -cvf droot.tar droot
           Write-Host "✅ packed daemons root!"
 
       #- name: Build app image
@@ -198,7 +200,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: |
-            buildkit
+            buildkit.tar
           key: buildkit-${{ runner.os }}-
           
       - name: Save Daemon Cache
@@ -206,5 +208,5 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: |
-            droot.tar.zst
+            droot.tar
           key: droot-${{ runner.os }}-
