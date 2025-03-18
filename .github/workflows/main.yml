@@ -85,7 +85,7 @@ jobs:
               -RedirectStandardError "$logs/buildkitd_error.log" `
               -NoNewWindow -PassThru
 
-            Wait-For "buildkit du"
+            Wait-For "buildctl du"
 
       - uses: fawazahmed0/action-debug-vscode@main
             
