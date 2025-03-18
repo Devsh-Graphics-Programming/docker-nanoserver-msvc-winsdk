@@ -39,7 +39,12 @@ jobs:
             
             Invoke-WebRequest -Uri "https://github.com/containerd/containerd/releases/download/v2.0.4/containerd-2.0.4-windows-amd64.tar.gz" -OutFile "containerd.tar.gz"
             tar -xf containerd.tar.gz -C buildkit
-            
+
+      - uses: fawazahmed0/action-debug-vscode@main
+
+      - name: TEST
+        shell: pwsh
+        run: |    
             Start-Process "buildkit/containerd.exe" `
               -RedirectStandardOutput "buildkit/logs/containerd.log" `
               -RedirectStandardError "buildkit/logs/containerd_error.log" `
