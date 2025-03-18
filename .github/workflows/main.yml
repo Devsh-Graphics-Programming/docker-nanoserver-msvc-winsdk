@@ -99,7 +99,7 @@ jobs:
 
             Wait-For "buildctl du"
 
-      - name: Build images
+      - name: Build base image
         shell: cmd
         run: |
             buildctl build --frontend=dockerfile.v0 --local context=. --local dockerfile=. ^
@@ -108,13 +108,16 @@ jobs:
               --import-cache type=local,src=buildkit/.cache ^
               --opt target=buildtools
 
-            buildctl build --frontend=dockerfile.v0 --local context=. --local dockerfile=. ^            
-              --output type=image,name=nano/app,push=false ^
-              --export-cache type=local,dest=buildkit/.cache,mode=max ^
-              --import-cache type=local,src=buildkit/.cache ^
-              --opt target=nano
-
       - uses: fawazahmed0/action-debug-vscode@main
+
+      #- name: Build app image
+      #  shell: cmd
+      #  run: |
+      #      buildctl build --frontend=dockerfile.v0 --local context=. --local dockerfile=. ^            
+      #        --output type=image,name=nano/app,push=false ^
+      #        --export-cache type=local,dest=buildkit/.cache,mode=max ^
+      #        --import-cache type=local,src=buildkit/.cache ^
+      #        --opt target=nano
             
       - name: Save Image Cache
         id: cache-buildkit
