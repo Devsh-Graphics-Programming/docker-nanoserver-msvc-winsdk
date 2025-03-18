@@ -57,6 +57,7 @@ jobs:
                 Write-Host "⏳ Waiting for command: $Command (Max retries: $TotalTicks, Interval: ${TickWait}s)"
                 
                 for ($i=1; $i -le $TotalTicks; $i++) {
+                    Write-Host "⏳ [$i/$TotalTicks]"
                     if (Invoke-Expression $Command) {
                         Write-Host "✅ Success: $Command"
                         return $true
@@ -64,26 +65,32 @@ jobs:
                     Start-Sleep -Seconds $TickWait
                 }
           
-                Write-Error "❌ Timeout: $Command did not succeed in $TotalTicks ticks (tick = $TickWait s)"
+                Write-Error "❌ Timeout: $Command did not succeed!"
                 exit 1
             }
 
             $logs = "buildkit/logs"
             $cni = "${{ github.workspace }}\buildkit\cni"
 
-            Start-Process containerd.exe `
-              -RedirectStandardOutput "$logs/containerd.log" `
-              -RedirectStandardError "$logs/containerd_error.log" `
-              -NoNewWindow -PassThru
+            Start-Job -ScriptBlock {
+                param($logs)
+                Start-Process containerd.exe `
+                  -RedirectStandardOutput "$logs/containerd.log" `
+                  -RedirectStandardError "$logs/containerd_error.log" `
+                  -NoNewWindow -PassThru
+            } -ArgumentList $logs
 
             Wait-For "ctr --namespace buildkit image ls"
 
-            Start-Process buildkitd.exe `
-              -ArgumentList @("--containerd-cni-config-path=$cni\0-containerd-nat.conf",
-                              "--containerd-cni-binary-dir=$cni") `
-              -RedirectStandardOutput "$logs/buildkitd.log" `
-              -RedirectStandardError "$logs/buildkitd_error.log" `
-              -NoNewWindow -PassThru
+            Start-Job -ScriptBlock {
+                param($logs, $cni)
+                Start-Process buildkitd.exe `
+                  -ArgumentList @("--containerd-cni-config-path=$cni\0-containerd-nat.conf",
+                                  "--containerd-cni-binary-dir=$cni") `
+                  -RedirectStandardOutput "$logs/buildkitd.log" `
+                  -RedirectStandardError "$logs/buildkitd_error.log" `
+                  -NoNewWindow -PassThru
+            } -ArgumentList $logs, $cni
 
             Wait-For "buildctl du"
 
