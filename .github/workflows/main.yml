@@ -102,7 +102,7 @@ jobs:
       - name: Build Image
         shell: pwsh
         run: | 
-            $buildctl buildctl.exe build --frontend=dockerfile.v0 --local context=. --local dockerfile=. --output type=image
+            $buildctl buildctl build --frontend=dockerfile.v0 --local context=. --local dockerfile=. --output type=image
             $buildctl,name=nano/base,push=false --export-cache type=local,dest=buildkit/cache,mode=max --import-cache type=local,src=buildkit/cache --opt target=buildtools
             $buildctl,name=nano/app,push=false --export-cache type=local,dest=buildkit/cache,mode=max --import-cache type=local,src=buildkit/cache --opt target=nano
 
