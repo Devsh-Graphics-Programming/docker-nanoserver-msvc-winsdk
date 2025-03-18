@@ -41,23 +41,38 @@ jobs:
 
             $Bin = "${{ github.workspace }}\buildkit\bin"
             echo "PATH=$Bin;$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-            
-      - uses: fawazahmed0/action-debug-vscode@main
 
-      - name: TEST
+      - name: Run daemons
         shell: pwsh
         run: |    
+            function Wait-For {
+                param (
+                    [string]$Command,          # Command to run
+                    [int]$TickWait = 1,        # Wait time between retries (seconds) [Default: 1s]
+                    [int]$TotalTicks = 5       # Maximum retries before failure [Default: 5 retries]
+                )
+          
+                Write-Host "⏳ Waiting for command: $Command (Max retries: $TotalTicks, Interval: ${TickWait}s)"
+                
+                for ($i=1; $i -le $TotalTicks; $i++) {
+                    if (Invoke-Expression $Command) {
+                        Write-Host "✅ Success: $Command"
+                        return $true
+                    }
+                    Start-Sleep -Seconds $TickWait
+                }
+          
+                Write-Error "❌ Timeout: $Command did not succeed in $TotalTicks ticks (tick = $TickWait s)"
+                exit 1
+            }
+
             Start-Process containerd.exe `
               -RedirectStandardOutput "buildkit/logs/containerd.log" `
               -RedirectStandardError "buildkit/logs/containerd_error.log" `
               -NoNewWindow -PassThru
 
-            $timeout = [datetime]::Now.AddSeconds(5)
-            while (-not (Test-NetConnection -ComputerName "localhost" -Port 2375 -InformationLevel Quiet)) {
-                if ([datetime]::Now -gt $timeout) { Write-Error "Timeout waiting for containerd to start"; exit 1 }
-                Start-Sleep -Seconds 1
-            }
-            
+            Wait-For "ctr --namespace buildkit image ls"
+              
             .\cni\setup-nat.ps1
 
             Start-Process buildkitd.exe `
@@ -66,6 +81,10 @@ jobs:
               -RedirectStandardOutput "buildkit/logs/buildkitd.log" `
               -RedirectStandardError "buildkit/logs/buildkitd_error.log" `
               -NoNewWindow -PassThru
+
+            Wait-For "buildkit du"
+
+      - uses: fawazahmed0/action-debug-vscode@main
             
       - name: Save Image Cache
         id: cache-buildkit
