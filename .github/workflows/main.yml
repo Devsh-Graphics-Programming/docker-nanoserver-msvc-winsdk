@@ -31,16 +31,19 @@ jobs:
       - name: Setup Buildkit
         shell: pwsh
         run: |
-            New-Item -ItemType Directory -Path "buildkit/logs" -Force
-
-            Invoke-WebRequest -Uri "https://github.com/moby/buildkit/releases/download/v0.20.1/buildkit-v0.20.1.windows-amd64.tar.gz" -OutFile "buildkit.tar.gz"
-            tar -xf buildkit.tar.gz -C buildkit
-            
-            Invoke-WebRequest -Uri "https://github.com/containerd/containerd/releases/download/v2.0.4/containerd-2.0.4-windows-amd64.tar.gz" -OutFile "containerd.tar.gz"
-            tar -xf containerd.tar.gz -C buildkit
+            if (-Not (Test-Path "buildkit")) {
+                Write-Host "📂 'buildkit' directory not found. Downloading and extracting daemons..."
+                
+                Invoke-WebRequest -Uri "https://github.com/moby/buildkit/releases/download/v0.20.1/buildkit-v0.20.1.windows-amd64.tar.gz" -OutFile "buildkit.tar.gz"
+                tar -xf buildkit.tar.gz -C buildkit
+                
+                Invoke-WebRequest -Uri "https://github.com/containerd/containerd/releases/download/v2.0.4/containerd-2.0.4-windows-amd64.tar.gz" -OutFile "containerd.tar.gz"
+                tar -xf containerd.tar.gz -C buildkit
+            }
 
             .\cni\setup-nat.ps1
 
+            New-Item -ItemType Directory -Path "buildkit/logs" -Force
             $Bin = "${{ github.workspace }}\buildkit\bin"
             echo "PATH=$Bin;$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
@@ -93,6 +96,13 @@ jobs:
             } -ArgumentList $logs, $cni
 
             Wait-For "buildctl du"
+
+      - name: Build Image
+        shell: pwsh
+        run: | 
+            $buildctl buildctl.exe build --frontend=dockerfile.v0 --local context=. --local dockerfile=. --output type=image
+            $buildctl,name=nano/base,push=false --export-cache type=local,dest=buildkit/cache,mode=max --import-cache type=local,src=buildkit/cache --opt target=buildtools
+            $buildctl,name=nano/app,push=false --export-cache type=local,dest=buildkit/cache,mode=max --import-cache type=local,src=buildkit/cache --opt target=nano
 
       - uses: fawazahmed0/action-debug-vscode@main
             
