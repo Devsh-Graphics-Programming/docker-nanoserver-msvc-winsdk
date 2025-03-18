@@ -17,77 +17,53 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Restore Cached WSL Kernel & VHDX
+      - name: Restore Image Cache
         uses: actions/cache/restore@v4
-        id: restore-wsl
+        id: restore-buildkit
         with:
           path: |
-            linux/bzImage
-            linux/ext4.vhdx
-            linux/wsl.msi
-          key: wsl-files-${{ runner.os }}-
+            buildkit
+            
+          key: buildkit-${{ runner.os }}-
           restore-keys: |
-            wsl-files-${{ runner.os }}-
+            buildkit-${{ runner.os }}-
 
-      - name: Configure WSL
+      - name: Setup Buildkit
         shell: pwsh
         run: |
-          wsl/setup-wsl.ps1
+            # Create required directories
+            New-Item -ItemType Directory -Path "buildkit/logs" -Force
 
-      - name: Build docker image, cache to local registry
-        if: env.REGISTRY_CACHE_HIT != 'true'
-        shell: pwsh
-        run: |
-          docker build -t app:latest .
-          docker tag app:latest localhost:5000/app:latest
-          wsl dockerd &> dockerd-logfile &
-          wsl/wait-for-daemon.ps1
-          wsl docker run --rm -d -p 5000:5000 --name registry -e REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY=/registry-data -v "/registry-data:/registry-data" registry:2.8.3
-          Invoke-RestMethod -Uri "http://localhost:5000/v2/_catalog" -TimeoutSec 15 | ConvertTo-Json
-          docker push localhost:5000/app
+            Invoke-WebRequest -Uri "https://github.com/moby/buildkit/releases/download/v0.20.1/buildkit-v0.20.1.windows-amd64.tar.gz" -OutFile "buildkit.tar.gz"
+            tar -xf buildkit.tar.gz -C buildkit
+            
+            Invoke-WebRequest -Uri "https://github.com/containerd/containerd/releases/download/v2.0.4/containerd-2.0.4-windows-amd64.tar.gz" -OutFile "containerd.tar.gz"
+            tar -xf containerd.tar.gz -C buildkit
+            
+            Start-Process "buildkit/containerd.exe" `
+              -RedirectStandardOutput "buildkit/logs/containerd.log" `
+              -RedirectStandardError "buildkit/logs/containerd_error.log" `
+              -NoNewWindow -PassThru
 
-      - name: Pull cached docker image from local registry
-        if: env.REGISTRY_CACHE_HIT == 'true'
-        shell: pwsh
-        run: |
-          wsl dockerd &> dockerd-logfile &
-          wsl/wait-for-daemon.ps1
-          wsl docker run --rm -d -p 5000:5000 --name registry -e REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY=/registry-data -v "/registry-data:/registry-data" registry:2.8.3
-          Invoke-RestMethod -Uri "http://localhost:5000/v2/_catalog" -TimeoutSec 15 | ConvertTo-Json
-          docker pull localhost:5000/app
-          docker tag localhost:5000/app app:latest
-          
-      - name: Run Nano Container
-        shell: pwsh
-        run: |
-          docker run -di --name orphan -v "${{ github.workspace }}:C:\app" app:latest
+            $timeout = [datetime]::Now.AddSeconds(5)
+            while (-not (Test-NetConnection -ComputerName "localhost" -Port 2375 -InformationLevel Quiet)) {
+                if ([datetime]::Now -gt $timeout) { Write-Error "Timeout waiting for containerd to start"; exit 1 }
+                Start-Sleep -Seconds 1
+            }
+            
+            .\cni\setup-nat.ps1
 
-      - name: Nano Container - Configure CMake Project
-        shell: pwsh
-        run: |
-          docker exec -w "C:\app\tests" -i orphan cmd /c cmake --preset configure-msvc-winsdk
-
-      - name: Nano Container - Build the Project
-        shell: pwsh
-        run: |
-          docker exec -w "C:\app\tests" -i orphan cmd /c cmake --build --preset build-msvc-winsdk --config Release
-
-      - name: Nano Container - Test the Project
-        shell: pwsh
-        run: |
-          docker exec -w "C:\app\tests\build\src" -i orphan cmd /c ctest -C Release --stop-on-failure --verbose
-
-      - name: Shutdown WSL
-        shell: pwsh
-        run: |
-          wsl --shutdown
-
-      - name: Save WSL Kernel & VHDX to Cache
-        id: cache-wsl
+            Start-Process "buildkit/buildkitd.exe" `
+              -ArgumentList @("--containerd-cni-config-path=${{ github.workspace }}\buildkit\containerd\cni\conf\0-containerd-nat.conf",
+                              "--containerd-cni-binary-dir=${{ github.workspace }}\buildkit\containerd\cni\bin") `
+              -RedirectStandardOutput "buildkit/logs/buildkitd.log" `
+              -RedirectStandardError "buildkit/logs/buildkitd_error.log" `
+              -NoNewWindow -PassThru
+            
+      - name: Save Image Cache
+        id: cache-buildkit
         uses: actions/cache/save@v4
         with:
           path: |
-            linux/bzImage
-            linux/ext4.vhdx
-            linux/wsl.msi
-          key: wsl-files-${{ runner.os }}-
+            buildkit
+          key: buildkit-${{ runner.os }}-
