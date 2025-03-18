@@ -32,15 +32,15 @@ jobs:
           restore-keys: |
             buildkit-${{ runner.os }}-
 
-      - name: Restore BuildKit daemon Cache
+      - name: Restore Daemon Cache
         uses: actions/cache/restore@v4
-        id: restore-buildkitd-cache
+        id: restore-droot-cache
         with:
           path: |
-            buildkitd
-          key: buildkitd-${{ runner.os }}-
+            droot
+          key: droot-${{ runner.os }}-
           restore-keys: |
-            buildkitd-${{ runner.os }}-
+            droot-${{ runner.os }}-
 
       - name: Log in to Container Registry
         uses: docker/login-action@v3
@@ -98,15 +98,16 @@ jobs:
 
             $logs = "buildkit/logs"
             $cni = "${{ github.workspace }}\buildkit\cni"
-            $droot = "${{ github.workspace }}\buildkitd\root"
+            $droot = "${{ github.workspace }}\droot"
 
             Start-Job -ScriptBlock {
-                param($logs)
+                param($logs, $droot)
                 Start-Process containerd.exe `
+                -ArgumentList @("--root=$droot\containerd") `
                   -RedirectStandardOutput "$logs/containerd.log" `
                   -RedirectStandardError "$logs/containerd_error.log" `
                   -NoNewWindow -PassThru
-            } -ArgumentList $logs
+            } -ArgumentList $logs, $droot
 
             Wait-For "ctr --namespace buildkit image ls"
 
@@ -115,7 +116,7 @@ jobs:
               Start-Process buildkitd.exe `
               -ArgumentList @("--containerd-cni-config-path=$cni\0-containerd-nat.conf",
                               "--containerd-cni-binary-dir=$cni", `
-                              "--root=$droot") `
+                              "--root=$droot\buildkitd") `
               -RedirectStandardOutput "$logs/buildkitd.log" `
               -RedirectStandardError "$logs/buildkitd_error.log" `
               -NoNewWindow -PassThru
@@ -181,10 +182,10 @@ jobs:
             buildkit
           key: buildkit-${{ runner.os }}-
           
-      - name: Save BuildKit daemon Cache
-        id: save-buildkitd-cache
+      - name: Save Daemon Cache
+        id: save-droot-cache
         uses: actions/cache/save@v4
         with:
           path: |
-            buildkitd
-          key: buildkitd-${{ runner.os }}-
+            droot
+          key: droot-${{ runner.os }}-
