@@ -3,7 +3,7 @@ name: NanoServer MSVC
 on:
   push:
     branches:
-      - master
+      - docker-backwards
   schedule:
     - cron: '0 0 * * *'
   workflow_dispatch:
@@ -71,4 +71,4 @@ jobs:
       - name: Nano Container - Test the Project
         shell: pwsh
         run: |
-          docker exec -w "C:\app\tests\build\src" -i orphan cmd /c ctest -C Release --stop-on-failure --verbose
+          docker exec -w "C:\app\tests\build-ct\src" -i orphan cmd /c ctest -C Release --stop-on-failure --verbose
