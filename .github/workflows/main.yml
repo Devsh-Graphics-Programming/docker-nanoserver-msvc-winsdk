@@ -3,7 +3,7 @@ name: NanoServer MSVC
 on:
   push:
     branches:
-      - master
+      - docker-backwards
   schedule:
     - cron: '0 0 * * *'
   workflow_dispatch:
