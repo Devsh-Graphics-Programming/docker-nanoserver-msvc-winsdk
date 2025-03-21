@@ -1,12 +1,28 @@
+# syntax=docker/dockerfile:1
 # escape=`
 
-FROM --platform=windows/amd64 mcr.microsoft.com/windows/servercore:ltsc2022 AS BUILD_TOOLS
+# ---------------- GLOBAL VARS ----------------
+ARG CMAKE_VERSION=3.31.0
+ARG PYTHON_VERSION=3.11.0
+ARG NINJA_VERSION=1.12.1
+ARG NASM_VERSION=2.16.03
+ARG GIT_VERSION=2.48.1
+ARG WINDOWS_11_SDK_VERSION=22621
+ARG WINDOWS_SDK_VERSION=10.0.${WINDOWS_11_SDK_VERSION}.0
+ARG VC_VERSION=14.42.17.12
+ARG MSVC_VERSION=14.42.34433
 
-ARG WINDOWS_11_SDK_VERSION="22621"
-ARG VC_VERSION="14.42.17.12"
-ARG MSVC_VERSION="14.42.34433"
+ARG IMPL_ARTIFACTS_DIR="C:\artifacts"
+ARG IMPL_NANO_BASE=mcr.microsoft.com/powershell
+ARG IMPL_NANO_TAG=lts-nanoserver-ltsc2022
 
-ENV WINDOWS_11_SDK_VERSION=${WINDOWS_11_SDK_VERSION} VC_VERSION=${VC_VERSION} MSVC_VERSION=${MSVC_VERSION} BUILD_TOOLS_DIR="C:\artifacts"
+# ---------------- BUILD TOOLS ----------------
+FROM mcr.microsoft.com/windows/servercore:ltsc2022 as buildtools
+
+ARG WINDOWS_11_SDK_VERSION
+ARG VC_VERSION
+ARG MSVC_VERSION
+ARG IMPL_ARTIFACTS_DIR
 
 RUN mkdir C:\Temp && cd C:\Temp `
 && curl -SL --output vs_buildtools.exe https://aka.ms/vs/17/release/vs_buildtools.exe `
@@ -14,48 +30,115 @@ RUN mkdir C:\Temp && cd C:\Temp `
 --remove Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
 --add Microsoft.VisualStudio.Component.VC.%VC_VERSION%.x86.x64 `
 --add Microsoft.VisualStudio.Component.Windows11SDK.%WINDOWS_11_SDK_VERSION% `
---installPath %BUILD_TOOLS_DIR% `
+--installPath %IMPL_ARTIFACTS_DIR% `
 || IF "%ERRORLEVEL%"=="3010" EXIT 0) `
-&& dir %BUILD_TOOLS_DIR%\VC\Tools\MSVC `
-&& if exist %BUILD_TOOLS_DIR%\VC\Tools\MSVC\%MSVC_VERSION% ( `
-for /d %i in (%BUILD_TOOLS_DIR%\VC\Tools\MSVC\*) do if /I not "%i"=="%BUILD_TOOLS_DIR%\VC\Tools\MSVC\%MSVC_VERSION%" rd /s /q "%i" `
+&& dir %IMPL_ARTIFACTS_DIR%\VC\Tools\MSVC `
+&& if exist %IMPL_ARTIFACTS_DIR%\VC\Tools\MSVC\%MSVC_VERSION% ( `
+for /d %i in (%IMPL_ARTIFACTS_DIR%\VC\Tools\MSVC\*) do if /I not "%i"=="%IMPL_ARTIFACTS_DIR%\VC\Tools\MSVC\%MSVC_VERSION%" rd /s /q "%i" `
 ) else ( `
 echo "Error: Expected MSVC version directory %MSVC_VERSION% does not exist!" && exit /b 1 `
 )
 
-RUN (echo { "WINDOWS_SDK_VERSION": "10.0.%WINDOWS_11_SDK_VERSION%.0", "VC_VERSION": "%VC_VERSION%", "MSVC_VERSION": "%MSVC_VERSION%" }) > %BUILD_TOOLS_DIR%\env.json
+# ---------------- CMAKE ----------------
+FROM ${IMPL_NANO_BASE}:${IMPL_NANO_TAG} as cmake
+SHELL ["pwsh", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
 
-FROM mcr.microsoft.com/windows/nanoserver:ltsc2022
+ARG CMAKE_VERSION
+ARG IMPL_ARTIFACTS_DIR
 
-ARG BUILD_TOOLS_DIR="C:\BuildTools"
-ARG WINDOWS_KITS_10_DIR="C:\WindowsKits10SDK"
-ARG CMAKE_VERSION=3.31.0
-ARG CMAKE_DIR="C:\CMake"
-ARG PYTHON_VERSION=3.11.0
-ARG PYTHON_DIR="C:\Python"
-ARG NINJA_VERSION=1.12.1
-ARG NINJA_DIR="C:\Ninja"
-ARG NASM_VERSION=2.16.03
-ARG NASM_DIR="C:\Nasm"
+RUN Write-Host "Installing CMake $env:CMAKE_VERSION" ; `
+New-Item -ItemType Directory -Force -Path C:\Temp, $env:IMPL_ARTIFACTS_DIR ; `
+Invoke-WebRequest -Uri "https://github.com/Kitware/CMake/releases/download/v$env:CMAKE_VERSION/cmake-$env:CMAKE_VERSION-windows-x86_64.zip" -OutFile C:\Temp\cmake.zip ; `
+tar -xf C:\Temp\cmake.zip -C $env:IMPL_ARTIFACTS_DIR ; `
+Remove-Item C:\Temp\cmake.zip
 
-COPY --link --from=BUILD_TOOLS ["C:/Program Files (x86)/Windows Kits/10", "${WINDOWS_KITS_10_DIR}"]
-COPY --link --from=BUILD_TOOLS ["C:/artifacts", "${BUILD_TOOLS_DIR}"]
+# ---------------- PYTHON ----------------
+FROM ${IMPL_NANO_BASE}:${IMPL_NANO_TAG} as python
+SHELL ["pwsh", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
 
-ENV CMAKE_WINDOWS_KITS_10_DIR=${WINDOWS_KITS_10_DIR} BUILD_TOOLS_DIR=${BUILD_TOOLS_DIR} `
-CMAKE_VERSION=${CMAKE_VERSION} CMAKE_URL=https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-windows-x86_64.zip CMAKE_DIR=${CMAKE_DIR} `
-PYTHON_VERSION=${PYTHON_VERSION} PYTHON_URL=https://www.python.org/ftp/python/${PYTHON_VERSION}/python-${PYTHON_VERSION}-embed-amd64.zip PYTHON_DIR=${PYTHON_DIR} `
-NINJA_VERSION=${NINJA_VERSION} NINJA_URL=https://github.com/ninja-build/ninja/releases/download/v${NINJA_VERSION}/ninja-win.zip NINJA_DIR=${NINJA_DIR} `
-NASM_VERSION=${NASM_VERSION} NASM_URL=https://www.nasm.us/pub/nasm/releasebuilds/${NASM_VERSION}/win64/nasm-${NASM_VERSION}-win64.zip NASM_DIR=${NASM_DIR}
+ARG PYTHON_VERSION
+ARG IMPL_ARTIFACTS_DIR
 
-RUN mkdir C:\Temp && cd C:\Temp && mkdir "%CMAKE_DIR%" && curl -SL --output cmake.zip %CMAKE_URL% && tar -xf cmake.zip -C "%CMAKE_DIR%" && del cmake.zip
-RUN cd C:\Temp && mkdir "%PYTHON_DIR%" && curl -SL --output python.zip %PYTHON_URL% && tar -xf python.zip -C "%PYTHON_DIR%" && del python.zip
-RUN cd C:\Temp && mkdir "%NINJA_DIR%" && curl -SL --output ninja.zip %NINJA_URL% && tar -xf ninja.zip -C "%NINJA_DIR%" && del ninja.zip
-RUN cd C:\Temp && mkdir "%NASM_DIR%" && curl -SL --output nasm.zip %NASM_URL% && tar -xf nasm.zip -C "%NASM_DIR%" && del nasm.zip
+RUN Write-Host "Installing Python $env:PYTHON_VERSION" ; `
+New-Item -ItemType Directory -Force -Path C:\Temp, $env:IMPL_ARTIFACTS_DIR ; `
+Invoke-WebRequest -Uri "https://www.python.org/ftp/python/$env:PYTHON_VERSION/python-$env:PYTHON_VERSION-embed-amd64.zip" -OutFile C:\Temp\python.zip ; `
+tar -xf C:\Temp\python.zip -C $env:IMPL_ARTIFACTS_DIR ; `
+Remove-Item C:\Temp\python.zip
 
-RUN cd %BUILD_TOOLS_DIR% && "%PYTHON_DIR%\python.exe" -c "import json, os; env=json.load(open('./env.json')); [os.system(f'setx {k} \"{v}\"') for k,v in env.items()]" `
-&& setx PATH "%CMAKE_DIR%\cmake-%CMAKE_VERSION%-windows-x86_64\bin;%PYTHON_DIR%;%NINJA_DIR%;%NASM_DIR%\nasm-%NASM_VERSION%;%PATH%" `
-&& setx MSVC_TOOLSET_DIR "%BUILD_TOOLS_DIR%\VC\Tools\MSVC\%MSVC_VERSION%"
+# ---------------- NINJA ----------------
+FROM ${IMPL_NANO_BASE}:${IMPL_NANO_TAG} as ninja
+SHELL ["pwsh", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
 
-SHELL ["cmd", "/c"]
-ENTRYPOINT ["cmd"]
-CMD ["/noexit"]
+ARG NINJA_VERSION
+ARG IMPL_ARTIFACTS_DIR
+
+RUN Write-Host "Installing Ninja $env:NINJA_VERSION" ; `
+New-Item -ItemType Directory -Force -Path C:\Temp, $env:IMPL_ARTIFACTS_DIR ; `
+Invoke-WebRequest -Uri "https://github.com/ninja-build/ninja/releases/download/v$env:NINJA_VERSION/ninja-win.zip" -OutFile C:\Temp\ninja.zip ; `
+tar -xf C:\Temp\ninja.zip -C $env:IMPL_ARTIFACTS_DIR ; `
+Remove-Item C:\Temp\ninja.zip
+
+# ---------------- NASM ----------------
+FROM ${IMPL_NANO_BASE}:${IMPL_NANO_TAG} as nasm
+SHELL ["pwsh", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
+
+ARG NASM_VERSION
+ARG IMPL_ARTIFACTS_DIR
+
+RUN Write-Host "Installing NASM $env:NASM_VERSION" ; `
+New-Item -ItemType Directory -Force -Path C:\Temp, $env:IMPL_ARTIFACTS_DIR ; `
+Invoke-WebRequest -Uri "https://www.nasm.us/pub/nasm/releasebuilds/$env:NASM_VERSION/win64/nasm-$env:NASM_VERSION-win64.zip" -OutFile C:\Temp\nasm.zip ; `
+tar -xf C:\Temp\nasm.zip -C $env:IMPL_ARTIFACTS_DIR ; `
+Remove-Item C:\Temp\nasm.zip
+
+# ---------------- GIT ----------------
+FROM ${IMPL_NANO_BASE}:${IMPL_NANO_TAG} as git
+SHELL ["pwsh", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
+
+ARG GIT_VERSION
+ARG IMPL_ARTIFACTS_DIR
+
+RUN Write-Host "Installing Git $env:GIT_VERSION" ; `
+New-Item -ItemType Directory -Force -Path C:\Temp, $env:IMPL_ARTIFACTS_DIR ; `
+Invoke-WebRequest -Uri "https://github.com/git-for-windows/git/releases/download/v$env:GIT_VERSION.windows.1/MinGit-$env:GIT_VERSION-busybox-64-bit.zip" -OutFile C:\Temp\git.zip ; `
+tar -xf C:\Temp\git.zip -C $env:IMPL_ARTIFACTS_DIR ; `
+Remove-Item C:\Temp\git.zip
+
+# ---------------- FINAL IMAGE ----------------
+FROM ${IMPL_NANO_BASE}:${IMPL_NANO_TAG}
+SHELL ["pwsh", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
+
+ARG IMPL_ARTIFACTS_DIR
+COPY --link --from=buildtools ["C:/Program Files (x86)/Windows Kits/10", "C:/WindowsKits10SDK"]
+COPY --link --from=buildtools ["${IMPL_ARTIFACTS_DIR}", "C:/BuildTools"]
+COPY --link --from=cmake ["${IMPL_ARTIFACTS_DIR}", "C:/CMake"]
+COPY --link --from=python ["${IMPL_ARTIFACTS_DIR}", "C:/Python"]
+COPY --link --from=ninja ["${IMPL_ARTIFACTS_DIR}", "C:/Ninja"]
+COPY --link --from=nasm ["${IMPL_ARTIFACTS_DIR}", "C:/Nasm"]
+COPY --link --from=git ["${IMPL_ARTIFACTS_DIR}", "C:/Git"]
+
+ARG CMAKE_VERSION
+ARG PYTHON_VERSION
+ARG NINJA_VERSION
+ARG NASM_VERSION
+ARG GIT_VERSION
+ARG WINDOWS_11_SDK_VERSION
+ARG WINDOWS_SDK_VERSION
+ARG VC_VERSION
+ARG MSVC_VERSION
+
+USER ContainerAdministrator
+ENV CMAKE_WINDOWS_KITS_10_DIR="C:\WindowsKits10SDK" `
+CMAKE_VERSION=${CMAKE_VERSION} `
+PYTHON_VERSION=${PYTHON_VERSION} `
+NINJA_VERSION=${NINJA_VERSION} `
+NASM_VERSION=${NASM_VERSION} `
+GIT_VERSION=${GIT_VERSION} `
+WINDOWS_11_SDK_VERSION=${WINDOWS_11_SDK_VERSION} `
+WINDOWS_SDK_VERSION=${WINDOWS_SDK_VERSION} `
+VC_VERSION=${VC_VERSION} `
+MSVC_VERSION=${MSVC_VERSION} `
+MSVC_TOOLSET_DIR=C:\BuildTools\VC\Tools\MSVC\${MSVC_VERSION} `
+PATH="C:\Windows\system32;C:\Windows;C:\Program Files\PowerShell;C:\Git\cmd;C:\Git\bin;C:\Git\usr\bin;C:\Git\mingw64\bin;C:\CMake\cmake-${CMAKE_VERSION}-windows-x86_64\bin;C:\Python;C:\Nasm;C:\Nasm\nasm-${NASM_VERSION};"
+
+CMD ["pwsh.exe", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass"]
