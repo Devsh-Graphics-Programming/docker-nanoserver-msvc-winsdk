@@ -3,7 +3,7 @@
 
 # ---------------- GLOBAL VARS ----------------
 ARG CMAKE_VERSION=3.31.0
-ARG PYTHON_VERSION=3.11.0
+ARG PYTHON_VERSION=3.13.2
 ARG NINJA_VERSION=1.12.1
 ARG NASM_VERSION=2.16.03
 ARG GIT_VERSION=2.48.1
@@ -30,6 +30,7 @@ RUN mkdir C:\Temp && cd C:\Temp `
 --remove Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
 --add Microsoft.VisualStudio.Component.VC.%VC_VERSION%.x86.x64 `
 --add Microsoft.VisualStudio.Component.Windows11SDK.%WINDOWS_11_SDK_VERSION% `
+--add Microsoft.VisualCpp.DIA.SDK `
 --installPath %IMPL_ARTIFACTS_DIR% `
 || IF "%ERRORLEVEL%"=="3010" EXIT 0) `
 && dir %IMPL_ARTIFACTS_DIR%\VC\Tools\MSVC `
@@ -63,7 +64,15 @@ RUN Write-Host "Installing Python $env:PYTHON_VERSION" ; `
 New-Item -ItemType Directory -Force -Path C:\Temp, $env:IMPL_ARTIFACTS_DIR ; `
 Invoke-WebRequest -Uri "https://www.python.org/ftp/python/$env:PYTHON_VERSION/python-$env:PYTHON_VERSION-embed-amd64.zip" -OutFile C:\Temp\python.zip ; `
 tar -xf C:\Temp\python.zip -C $env:IMPL_ARTIFACTS_DIR ; `
-Remove-Item C:\Temp\python.zip
+Remove-Item C:\Temp\python.zip ; `
+Write-Host "Disabling isolated mode..." ; `
+$pthFiles = Get-ChildItem -Path $env:IMPL_ARTIFACTS_DIR -Filter "*._pth" ; `
+foreach ($file in $pthFiles) { `
+    $oldName = $file.FullName ; `
+    $newName = $oldName + '.disabled' ; `
+    Write-Host "Renaming $oldName to $newName" ; `
+    Rename-Item -Path $oldName -NewName $newName `
+}
 
 # ---------------- NINJA ----------------
 FROM ${IMPL_NANO_BASE}:${IMPL_NANO_TAG} as ninja
@@ -137,8 +146,10 @@ GIT_VERSION=${GIT_VERSION} `
 WINDOWS_11_SDK_VERSION=${WINDOWS_11_SDK_VERSION} `
 WINDOWS_SDK_VERSION=${WINDOWS_SDK_VERSION} `
 VC_VERSION=${VC_VERSION} `
+VS_INSTANCE_LOCATION=C:\BuildTools `
 MSVC_VERSION=${MSVC_VERSION} `
 MSVC_TOOLSET_DIR=C:\BuildTools\VC\Tools\MSVC\${MSVC_VERSION} `
-PATH="C:\Windows\system32;C:\Windows;C:\Program Files\PowerShell;C:\Git\cmd;C:\Git\bin;C:\Git\usr\bin;C:\Git\mingw64\bin;C:\CMake\cmake-${CMAKE_VERSION}-windows-x86_64\bin;C:\Python;C:\Nasm;C:\Nasm\nasm-${NASM_VERSION};"
+PATH="C:\Windows\system32;C:\Windows;C:\Program Files\PowerShell;C:\Git\cmd;C:\Git\bin;C:\Git\usr\bin;C:\Git\mingw64\bin;C:\CMake\cmake-${CMAKE_VERSION}-windows-x86_64\bin;C:\Python;C:\Nasm;C:\Nasm\nasm-${NASM_VERSION};C:\Ninja;"
+RUN git config --global --add safe.directory '*'
 
 CMD ["pwsh.exe", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass"]

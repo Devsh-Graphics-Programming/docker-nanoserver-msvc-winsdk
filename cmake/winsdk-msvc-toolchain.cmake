@@ -8,14 +8,24 @@ if(NOT CMAKE_GENERATOR MATCHES "Ninja*")
     message(FATAL_ERROR "CMAKE_GENERATOR = \"${CMAKE_GENERATOR}\" is unsupported, use Ninja (single or multi config) generators!")
 endif()
 
+# https://cmake.org/cmake/help/v3.31/variable/CMAKE_GENERATOR_INSTANCE.html#visual-studio-instance-selection
+cmake_path(CONVERT $ENV{VS_INSTANCE_LOCATION} TO_CMAKE_PATH_LIST VS_INSTANCE_LOCATION NORMALIZE)
 cmake_path(CONVERT $ENV{CMAKE_WINDOWS_KITS_10_DIR} TO_CMAKE_PATH_LIST WINDOWS_KITS_10_DIR NORMALIZE)
 cmake_path(CONVERT $ENV{WINDOWS_SDK_VERSION} TO_CMAKE_PATH_LIST WINDOWS_SDK_VERSION NORMALIZE)
 cmake_path(CONVERT $ENV{MSVC_TOOLSET_DIR} TO_CMAKE_PATH_LIST MSVC_TOOLSET_DIR NORMALIZE)
 
-if(VERBOSE)
-    message(STATUS "WINDOWS_KITS_10_DIR = \"${WINDOWS_KITS_10_DIR}\"")
-    message(STATUS "WINDOWS_SDK_VERSION = \"${WINDOWS_SDK_VERSION}\"")
-    message(STATUS "MSVC_TOOLSET_DIR = \"${MSVC_TOOLSET_DIR}\"")
+message(STATUS "VS_INSTANCE_LOCATION = \"${VS_INSTANCE_LOCATION}\"")
+message(STATUS "WINDOWS_KITS_10_DIR = \"${WINDOWS_KITS_10_DIR}\"")
+message(STATUS "WINDOWS_SDK_VERSION = \"${WINDOWS_SDK_VERSION}\"")
+message(STATUS "MSVC_TOOLSET_DIR = \"${MSVC_TOOLSET_DIR}\"")
+
+if(NOT EXISTS "${VS_INSTANCE_LOCATION}")
+    message("VS_INSTANCE_LOCATION ENV not defined!")
+endif()
+
+string(FIND "${MSVC_TOOLSET_DIR}" "${VS_INSTANCE_LOCATION}" FOUND)
+if("${FOUND}" MATCHES "-1")
+    message(FATAL_ERROR "MSVC_TOOLSET_DIR is not within VS_INSTANCE_LOCATION, did you move the MSVC toolset directory outside the VS installation? (bad idea!)")
 endif()
 
 set(CMAKE_SYSTEM_NAME Windows)
@@ -87,3 +97,14 @@ _UPDATE_STANDARD_DIRECTORIES_(INCLUDE "${INCLUDE}")
 _UPDATE_STANDARD_DIRECTORIES_(LINK "${LIB}")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
+
+# extensions
+# TODO: could use vswhere.exe with component IDs
+macro(_REQUEST_EXTENSION_ WHAT HINT)
+if(EXISTS "${HINT}")
+    set(${WHAT} "${HINT}")
+    message(STATUS "WITH ${WHAT} = \"${HINT}\"")
+endif()
+endmacro()
+
+_REQUEST_EXTENSION_(DIASDK_INCLUDE_DIR "${VS_INSTANCE_LOCATION}/DIA SDK/include")
