@@ -152,6 +152,7 @@ VS_INSTANCE_LOCATION=C:\BuildTools `
 MSVC_VERSION=${MSVC_VERSION} `
 MSVC_TOOLSET_DIR=C:\BuildTools\VC\Tools\MSVC\${MSVC_VERSION} `
 PATH="C:\Windows\system32;C:\Windows;C:\Program Files\PowerShell;C:\Git\cmd;C:\Git\bin;C:\Git\usr\bin;C:\Git\mingw64\bin;C:\CMake\cmake-${CMAKE_VERSION}-windows-x86_64\bin;C:\Python;C:\Nasm;C:\Nasm\nasm-${NASM_VERSION};C:\Ninja;"
-RUN git config --global --add safe.directory '*'
 
+COPY . sample/
+WORKDIR C:\sample\tests
 CMD ["pwsh.exe", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass"]

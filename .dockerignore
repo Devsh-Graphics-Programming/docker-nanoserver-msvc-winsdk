@@ -1,2 +1,2 @@
-**
-!redist/**
+tests/build*/**
+tests/3rdparty/packages*/*

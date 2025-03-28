@@ -15,6 +15,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Setup environment
+        shell: pwsh
+        run: |
+          Set-MpPreference -DisableRealtimeMonitoring $true
+
       - name: Restore Cached Image TAR
         uses: actions/cache@v4
         with:
@@ -56,19 +61,19 @@ jobs:
       - name: Run Nano Container
         shell: pwsh
         run: |
-          docker run -di --name orphan -v "${{ github.workspace }}:C:\app" app:latest
+          docker run -di --name orphan app:latest
 
       - name: Nano Container - Configure CMake Project
         shell: pwsh
         run: |
-          docker exec -w "C:\app\tests" -i orphan cmd /c cmake --preset configure-msvc-winsdk
+          docker exec orphan cmake --preset configure-msvc-winsdk
 
       - name: Nano Container - Build the Project
         shell: pwsh
         run: |
-          docker exec -w "C:\app\tests" -i orphan cmd /c cmake --build --preset build-msvc-winsdk --config Release
+          docker exec orphan cmake --build --preset build-msvc-winsdk --config Release
 
       - name: Nano Container - Test the Project
         shell: pwsh
         run: |
-          docker exec -w "C:\app\tests\build-ct\src" -i orphan cmd /c ctest -C Release --stop-on-failure --verbose
+          docker exec -w "C:\sample\tests\build-ct\src" orphan ctest -C Release --stop-on-failure --verbose
