@@ -29,6 +29,8 @@ RUN mkdir C:\Temp && cd C:\Temp `
 && (start /w vs_buildtools.exe --quiet --wait --norestart --nocache `
 --remove Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
 --add Microsoft.VisualStudio.Component.VC.%VC_VERSION%.x86.x64 `
+--add Microsoft.VisualStudio.Component.VC.%VC_VERSION%.ATL `
+--add Microsoft.VisualStudio.Component.VC.%VC_VERSION%.MFC `
 --add Microsoft.VisualStudio.Component.Windows11SDK.%WINDOWS_11_SDK_VERSION% `
 --add Microsoft.VisualCpp.DIA.SDK `
 --installPath %IMPL_ARTIFACTS_DIR% `
@@ -116,6 +118,7 @@ Remove-Item C:\Temp\git.zip
 # ---------------- FINAL IMAGE ----------------
 FROM ${IMPL_NANO_BASE}:${IMPL_NANO_TAG}
 SHELL ["pwsh", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
+USER ContainerAdministrator
 
 ARG IMPL_ARTIFACTS_DIR
 COPY --link --from=buildtools ["C:/Program Files (x86)/Windows Kits/10", "C:/WindowsKits10SDK"]
@@ -126,6 +129,10 @@ COPY --link --from=ninja ["${IMPL_ARTIFACTS_DIR}", "C:/Ninja"]
 COPY --link --from=nasm ["${IMPL_ARTIFACTS_DIR}", "C:/Nasm"]
 COPY --link --from=git ["${IMPL_ARTIFACTS_DIR}", "C:/Git"]
 
+COPY redist/msvc.ps1 msvc.ps1
+ARG MSVC_VERSION
+RUN $REDIST_PATH = 'C:/BuildTools/VC/Redist/MSVC/' + $env:MSVC_VERSION ; pwsh -File msvc.ps1 -RedistPath "$REDIST_PATH" -Arch x64
+
 ARG CMAKE_VERSION
 ARG PYTHON_VERSION
 ARG NINJA_VERSION
@@ -134,9 +141,8 @@ ARG GIT_VERSION
 ARG WINDOWS_11_SDK_VERSION
 ARG WINDOWS_SDK_VERSION
 ARG VC_VERSION
-ARG MSVC_VERSION
 
-USER ContainerAdministrator
+
 ENV CMAKE_WINDOWS_KITS_10_DIR="C:\WindowsKits10SDK" `
 CMAKE_VERSION=${CMAKE_VERSION} `
 PYTHON_VERSION=${PYTHON_VERSION} `
