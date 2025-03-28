@@ -18,7 +18,13 @@ jobs:
       - name: Setup environment
         shell: pwsh
         run: |
+          set-mppreference -ExclusionPath c:\
+          set-mppreference -ExclusionExtension *.*
+          set-mppreference -RemediationScheduleDay 8
           Set-MpPreference -DisableRealtimeMonitoring $true
+          Set-MpPreference -DisableRemovableDriveScanning $true
+          Set-MpPreference -DisableArchiveScanning $true
+          Set-MpPreference -DisableScanningMappedNetworkDrivesForFullScan $true
 
       - name: Restore Cached Image TAR
         uses: actions/cache@v4
@@ -76,7 +82,7 @@ jobs:
       - name: Nano Container - Build the Project
         shell: pwsh
         run: |
-          docker exec orphan cmake --build --preset build-msvc-winsdk --config Release -- -j 0
+          docker exec orphan cmake --build --preset build-msvc-winsdk --config Release -- -j 4
 
       - name: Nano Container - Test the Project
         shell: pwsh
