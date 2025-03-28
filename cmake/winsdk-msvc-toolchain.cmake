@@ -77,6 +77,7 @@ endfunction()
 _VALIDATE_ENV_V_(LIB)
 _VALIDATE_ENV_V_(INCLUDE)
 
+# compilers/linkers
 set(CMAKE_C_COMPILER "${MSVC_TOOLSET_DIR}/bin/Host${ARCH}/${ARCH}/cl.exe" CACHE FILEPATH "")
 set(CMAKE_CXX_COMPILER "${MSVC_TOOLSET_DIR}/bin/Host${ARCH}/${ARCH}/cl.exe" CACHE FILEPATH "")
 set(CMAKE_ASM_COMPILER "${MSVC_TOOLSET_DIR}/bin/Host${ARCH}/${ARCH}/cl.exe" CACHE FILEPATH "")
@@ -112,3 +113,45 @@ endif()
 endmacro()
 
 _REQUEST_EXTENSION_(DIASDK_INCLUDE_DIR "${VS_INSTANCE_LOCATION}/DIA SDK/include")
+
+# redists
+function(_REQUEST_REDIST_MODULES BASE OUTPUT)
+    if(NOT EXISTS "${BASE}")
+        message(FATAL_ERROR "Internal error, base \"${BASE}\" for redist module search directories doesn't exist - is your build tools installation corrupted?")
+    endif()
+
+    file(GLOB_RECURSE _MODULES LIST_DIRECTORIES false "${BASE}/*.dll")
+
+    set(_DIRS)
+    foreach(f IN LISTS _MODULES)
+        get_filename_component(d "${f}" DIRECTORY)
+        list(APPEND _DIRS "${d}")
+    endforeach()
+
+    list(REMOVE_DUPLICATES _DIRS)
+
+    set(${OUTPUT} "${_DIRS}")
+
+    if(NOT ${OUTPUT})
+        message(FATAL_ERROR "Internal error, no redist module search directories found (CRTs) - is your build tools installation corrupted?")
+    endif()
+
+    set(${OUTPUT} "${${OUTPUT}}" PARENT_SCOPE)
+endfunction()
+
+cmake_path(GET MSVC_TOOLSET_DIR FILENAME MSVC_VERSION)
+cmake_path(CONVERT "${VS_INSTANCE_LOCATION}/VC/Redist/MSVC/${MSVC_VERSION}" TO_CMAKE_PATH_LIST MSVC_REDIST_BASE NORMALIZE)
+_REQUEST_REDIST_MODULES("${MSVC_REDIST_BASE}/${ARCH}" RELEASE_REDISTS)
+_REQUEST_REDIST_MODULES("${MSVC_REDIST_BASE}/debug_nonredist/${ARCH}" DEBUG_REDISTS)
+set(MSVC_REDIST_MODULE_DIRECTORIES "${RELEASE_REDISTS};${DEBUG_REDISTS}" CACHE FILEPATH "MSVC Redist module search directories")
+
+# launchers
+if(WIN32)
+    set(SHELL_LAUNCHER "cmd /C")
+else()
+    set(SHELL_LAUNCHER "sh -c")
+endif()
+
+set_property(GLOBAL PROPERTY RULE_LAUNCH_CUSTOM
+  "${CMAKE_COMMAND} -E env --modify PATH=path_list_prepend:${MSVC_REDIST_MODULE_DIRECTORIES} -- ${SHELL_LAUNCHER}"
+)
