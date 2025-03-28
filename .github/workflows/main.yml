@@ -82,7 +82,7 @@ jobs:
       - name: Nano Container - Build the Project
         shell: pwsh
         run: |
-          docker exec orphan cmake --build --preset build-msvc-winsdk --config Release -- -j69 -l4
+          docker exec orphan cmake --build --preset build-msvc-winsdk --config Release -- -j 14
 
       - name: Nano Container - Test the Project
         shell: pwsh
