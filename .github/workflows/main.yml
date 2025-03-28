@@ -63,6 +63,11 @@ jobs:
         run: |
           docker run -di --name orphan app:latest
 
+      - name: Inspect Nano Container
+        shell: pwsh
+        run: |
+          docker inspect orphan
+
       - name: Nano Container - Configure CMake Project
         shell: pwsh
         run: |
