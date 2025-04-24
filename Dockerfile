@@ -98,7 +98,7 @@ ARG IMPL_ARTIFACTS_DIR
 
 RUN Write-Host "Installing NASM $env:NASM_VERSION" ; `
 New-Item -ItemType Directory -Force -Path C:\Temp, $env:IMPL_ARTIFACTS_DIR ; `
-Invoke-WebRequest -Uri "https://www.nasm.us/pub/nasm/releasebuilds/$env:NASM_VERSION/win64/nasm-$env:NASM_VERSION-win64.zip" -OutFile C:\Temp\nasm.zip ; `
+Invoke-WebRequest -Uri "https://fossies.org/windows/misc/nasm-$env:NASM_VERSION-win64.zip" -OutFile C:\Temp\nasm.zip ; `
 tar -xf C:\Temp\nasm.zip -C $env:IMPL_ARTIFACTS_DIR ; `
 Remove-Item C:\Temp\nasm.zip
 
