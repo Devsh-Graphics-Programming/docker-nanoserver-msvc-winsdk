@@ -10,7 +10,16 @@ ARG GIT_VERSION=2.48.1
 ARG WINDOWS_11_SDK_VERSION=22621
 ARG WINDOWS_SDK_VERSION=10.0.${WINDOWS_11_SDK_VERSION}.0
 ARG VC_VERSION=14.43.17.13
+
+# note: it seems we cannot pass version within any workflow ID to installer, though as I look at VS package cache I see it being done in json payloads! 
+# henceforth we enforce fixed versions with nasty bootstrap URL, more details:
+# https://learn.microsoft.com/en-us/visualstudio/releases/2022/release-history#fixed-version-bootstrappers
+# Default Version: 17.13.6, Channel: Current
+ARG BUILD_TOOLS_URL=https://download.visualstudio.microsoft.com/download/pr/8fada5c7-8417-4239-acc3-bd499af09222/353141457abcc59eb9c38b2f30084e7271c6bcfb4e185466d98161bada905759/vs_BuildTools.exe
+
+# used for validation & matches internal package payloads, note: requires adjusting BUILD_TOOLS_URL
 ARG MSVC_VERSION=14.43.34808
+ARG CLANGCL_VERSION=19.1.1
 
 ARG IMPL_ARTIFACTS_DIR="C:\artifacts"
 ARG IMPL_NANO_BASE=mcr.microsoft.com/powershell
@@ -22,25 +31,52 @@ FROM mcr.microsoft.com/windows/servercore:ltsc2022 as buildtools
 ARG WINDOWS_11_SDK_VERSION
 ARG VC_VERSION
 ARG MSVC_VERSION
+ARG BUILD_TOOLS_URL
 ARG IMPL_ARTIFACTS_DIR
 
 RUN mkdir C:\Temp && cd C:\Temp `
-&& curl -SL --output vs_buildtools.exe https://aka.ms/vs/17/release/vs_buildtools.exe `
+&& curl -SL --output vs_buildtools.exe %BUILD_TOOLS_URL% `
 && (start /w vs_buildtools.exe --quiet --wait --norestart --nocache `
---remove Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
 --add Microsoft.VisualStudio.Component.VC.%VC_VERSION%.x86.x64 `
 --add Microsoft.VisualStudio.Component.VC.%VC_VERSION%.ATL `
 --add Microsoft.VisualStudio.Component.VC.%VC_VERSION%.MFC `
 --add Microsoft.VisualStudio.Component.Windows11SDK.%WINDOWS_11_SDK_VERSION% `
 --add Microsoft.VisualCpp.DIA.SDK `
+--add Microsoft.VisualStudio.Component.VC.Llvm.Clang `
 --installPath %IMPL_ARTIFACTS_DIR% `
-|| IF "%ERRORLEVEL%"=="3010" EXIT 0) `
-&& dir %IMPL_ARTIFACTS_DIR%\VC\Tools\MSVC `
+|| IF "%ERRORLEVEL%"=="3010" EXIT 0) && dir %IMPL_ARTIFACTS_DIR%\VC\Tools\MSVC `
 && if exist %IMPL_ARTIFACTS_DIR%\VC\Tools\MSVC\%MSVC_VERSION% ( `
 for /d %i in (%IMPL_ARTIFACTS_DIR%\VC\Tools\MSVC\*) do if /I not "%i"=="%IMPL_ARTIFACTS_DIR%\VC\Tools\MSVC\%MSVC_VERSION%" rd /s /q "%i" `
 ) else ( `
 echo "Error: Expected MSVC version directory %MSVC_VERSION% does not exist!" && exit /b 1 `
 )
+
+SHELL ["powershell", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
+# important note: msc ships compiler which minor version doesn't match the toolset directory name
+# eg. dir name: 14.43.34808 (MSVC_VERSION) but version reported by cl.exe: 19.43.34810
+# more over, all package cache payloads (by default at C:\ProgramData\Microsoft\VisualStudio)
+# use MSVC_VERSION within workflow components ID - none of them contains 19.43.34810
+# which means that most likely there is a bug with versioning cl binaries
+
+# RUN $version = "$env:MSVC_VERSION" ; `
+# $cl = Join-Path $env:IMPL_ARTIFACTS_DIR "VC\Tools\MSVC\$version\bin\Hostx64\x64\cl.exe" ; `
+# $pipe = & "$cl" 2>&1 ; `
+# if ($pipe -match "$version") { exit 0 } else { `
+# Write-Host "Validation failed due to requested version mismatch! Note: MSVC_VERSION = $version" ; `
+# Write-Host "$pipe" ; `
+# exit -1 `
+# }
+
+# on the other hand here version depends on channel (see BUILD_TOOLS_URL)
+ARG CLANGCL_VERSION
+RUN $version = "$env:CLANGCL_VERSION" ; `
+$clangcl = Join-Path $env:IMPL_ARTIFACTS_DIR "VC\Tools\Llvm\bin\clang-cl.exe" ; `
+$pipe = & "$clangcl" -v 2>&1 ; `
+if ($pipe -match "$version") { exit 0 } else { `
+Write-Host "Validation failed due to requested version mismatch! Note: CLANGCL_VERSION = $version" ; `
+Write-Host "$pipe" ; `
+exit -1 `
+}
 
 # ---------------- CMAKE ----------------
 FROM ${IMPL_NANO_BASE}:${IMPL_NANO_TAG} as cmake
@@ -138,6 +174,8 @@ ARG WINDOWS_11_SDK_VERSION
 ARG WINDOWS_SDK_VERSION
 ARG VC_VERSION
 ARG MSVC_VERSION
+ARG CLANGCL_VERSION
+ARG BUILD_TOOLS_URL
 
 ENV CMAKE_WINDOWS_KITS_10_DIR="C:\WindowsKits10SDK" `
 CMAKE_VERSION=${CMAKE_VERSION} `
@@ -150,6 +188,8 @@ WINDOWS_SDK_VERSION=${WINDOWS_SDK_VERSION} `
 VC_VERSION=${VC_VERSION} `
 VS_INSTANCE_LOCATION=C:\BuildTools `
 MSVC_VERSION=${MSVC_VERSION} `
+CLANGCL_VERSION=${CLANGCL_VERSION} `
+BUILD_TOOLS_URL=${BUILD_TOOLS_URL} `
 MSVC_TOOLSET_DIR=C:\BuildTools\VC\Tools\MSVC\${MSVC_VERSION} `
 PATH="C:\Windows\system32;C:\Windows;C:\Program Files\PowerShell;C:\Git\cmd;C:\Git\bin;C:\Git\usr\bin;C:\Git\mingw64\bin;C:\CMake\cmake-${CMAKE_VERSION}-windows-x86_64\bin;C:\Python;C:\Nasm;C:\Nasm\nasm-${NASM_VERSION};C:\Ninja;"
 
