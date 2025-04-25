@@ -12,9 +12,19 @@
             "hidden": false,
             "description": "Configure with MSVC & Windows Kits SDK, Ninja Multi-Config generator",
             "generator": "Ninja Multi-Config",
-            "binaryDir": "${sourceDir}/build-ct",
+            "binaryDir": "${sourceDir}/build-ct/msvc",
             "cacheVariables": {
                 "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/../cmake/winsdk-msvc-toolchain.cmake"
+            }
+        },
+        {
+            "name": "configure-clangcl-winsdk",
+            "hidden": false,
+            "description": "Configure with ClangCL & Windows Kits SDK, Ninja Multi-Config generator",
+            "generator": "Ninja Multi-Config",
+            "binaryDir": "${sourceDir}/build-ct/clang-cl",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/../cmake/winsdk-clangcl-toolchain.cmake"
             }
         }
     ],
@@ -24,6 +34,12 @@
             "hidden": false,
             "description": "Build with MSVC & Windows Kits SDK, Ninja Multi-Config generator",
             "configurePreset": "configure-msvc-winsdk"
+        },
+        {
+            "name": "build-clangcl-winsdk",
+            "hidden": false,
+            "description": "Build with ClangCL & Windows Kits SDK, Ninja Multi-Config generator",
+            "configurePreset": "configure-clangcl-winsdk"
         }
     ]
 }

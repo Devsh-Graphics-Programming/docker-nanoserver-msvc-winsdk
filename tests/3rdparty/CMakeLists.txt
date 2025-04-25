@@ -24,7 +24,7 @@ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/.gitconfig"
 CPMAddPackage(NAME libjpeg-turbo URL https://github.com/libjpeg-turbo/libjpeg-turbo/archive/97a1575cb877e593cf9940cd869f41b1ddd4a4fd.tar.gz)
 CPMAddPackage(NAME blake3 URL https://github.com/BLAKE3-team/BLAKE3/archive/refs/tags/1.6.1.tar.gz DOWNLOAD_ONLY YES)
 add_subdirectory("${blake3_SOURCE_DIR}/c")
-CPMAddPackage(NAME dxc GITHUB_REPOSITORY Devsh-Graphics-Programming/DirectXShaderCompiler GIT_TAG 96a5b5c85ee1ec7e8333d7140e1d2384be4faa02 GIT_SHALLOW YES DOWNLOAD_ONLY YES)
+CPMAddPackage(NAME dxc GITHUB_REPOSITORY Devsh-Graphics-Programming/DirectXShaderCompiler GIT_TAG 2661dd0db39ceddd2c4c0289f0387e8806fa3d0b GIT_SHALLOW YES DOWNLOAD_ONLY YES)
 
 set(DXC_ENABLE_ETW OFF) # this is very important, without disabling this one its impossbile to compile dxcompiler on nano server within its current build system
 set(HLSL_OPTIONAL_PROJS_IN_DEFAULT OFF)

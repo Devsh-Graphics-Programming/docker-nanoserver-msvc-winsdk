@@ -191,8 +191,10 @@ MSVC_VERSION=${MSVC_VERSION} `
 CLANGCL_VERSION=${CLANGCL_VERSION} `
 BUILD_TOOLS_URL=${BUILD_TOOLS_URL} `
 MSVC_TOOLSET_DIR=C:\BuildTools\VC\Tools\MSVC\${MSVC_VERSION} `
+LLVM_TOOLSET_DIR=C:\BuildTools\VC\Tools\Llvm `
 PATH="C:\Windows\system32;C:\Windows;C:\Program Files\PowerShell;C:\Git\cmd;C:\Git\bin;C:\Git\usr\bin;C:\Git\mingw64\bin;C:\CMake\cmake-${CMAKE_VERSION}-windows-x86_64\bin;C:\Python;C:\Nasm;C:\Nasm\nasm-${NASM_VERSION};C:\Ninja;"
 
+RUN git config --system --add safe.directory '*' 
 COPY . sample/
 WORKDIR C:\sample\tests
 CMD ["pwsh.exe", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass"]

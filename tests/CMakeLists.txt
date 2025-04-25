@@ -5,5 +5,10 @@ project(NanoMSVC CXX C)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+add_compile_options(
+    $<$<AND:$<COMPILE_LANGUAGE:CXX,C>,$<CXX_COMPILER_ID:Clang>>:-Wno-error>
+    $<$<AND:$<COMPILE_LANGUAGE:CXX,C>,$<CXX_COMPILER_ID:Clang>>:-w>
+)
+
 add_subdirectory(3rdparty)
 add_subdirectory(src)
