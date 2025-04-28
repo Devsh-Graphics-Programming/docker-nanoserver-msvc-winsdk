@@ -43,11 +43,11 @@ jobs:
             echo "CACHE_HIT=true" >> $env:GITHUB_ENV
           }
 
-      - name: Build Image Without Cache
+      - name: Build Image
         if: env.CACHE_HIT != 'true'
         shell: pwsh
         run: |
-          docker build -t app:latest .
+          docker build --isolation process --build-arg "IMPL_COMPRESSION_OPTIONS=-T0 --ultra" --build-arg "IMPL_COMPRESSION_LEVEL=22" -t app:latest .
           
       - name: Save Docker Image to TAR
         if: env.CACHE_HIT != 'true'
@@ -67,12 +67,17 @@ jobs:
       - name: Run Nano Container
         shell: pwsh
         run: |
-          docker run -di --name orphan app:latest
+          docker run --isolation process -di --name orphan app:latest
 
       - name: Inspect Nano Container
         shell: pwsh
         run: |
           docker inspect orphan
+
+      - name: Nano Container - Unpack Artifacts
+        shell: pwsh
+        run: |
+          docker exec C:\unpack.ps1
 
       - name: Nano Container - Configure CMake Project
         shell: pwsh

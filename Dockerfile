@@ -27,7 +27,8 @@ ARG MSVC_VERSION=14.43.34808
 ARG CLANGCL_VERSION=19.1.1
 
 ARG IMPL_ARTIFACTS_DIR="C:\artifacts"
-ARG IMPL_COMPRESSION_ARGS=-T0
+ARG IMPL_COMPRESSION_OPTIONS=-T0
+ARG IMPL_COMPRESSION_LEVEL=3
 
 ARG IMPL_NANO_BASE=mcr.microsoft.com/powershell
 ARG IMPL_NANO_TAG=lts-nanoserver-ltsc2022
@@ -187,12 +188,13 @@ COPY --link --from=git ["${IMPL_ARTIFACTS_DIR}", "C:/pack/Git"]
 COPY --link --from=zstd ["${IMPL_ARTIFACTS_DIR}", "C:/compress"]
 
 ARG ZSTD_VERSION
-ARG IMPL_COMPRESSION_ARGS
+ARG IMPL_COMPRESSION_OPTIONS
+ARG IMPL_COMPRESSION_LEVEL
 
 WORKDIR C:\pack
 RUN $dirs = Get-ChildItem -Directory | ForEach-Object { $_.Name }; $dirs; `
-tar -cf artifacts.tar @dirs; dir artifacts.tar; `
-& "C:\compress\zstd-v$env:ZSTD_VERSION-win64\zstd.exe" $env:IMPL_COMPRESSION_ARGS artifacts.tar; dir artifacts.tar.zst; `
+tar -cf artifacts.tar @dirs; dir artifacts.tar; $compressionOpts = $env:IMPL_COMPRESSION_OPTIONS -split ' '; `
+& "C:\compress\zstd-v$env:ZSTD_VERSION-win64\zstd.exe" @compressionOpts artifacts.tar "-$env:IMPL_COMPRESSION_LEVEL"; dir artifacts.tar.zst; `
 rm artifacts.tar
 
 # ---------------- FINAL IMAGE ----------------
