@@ -7,14 +7,19 @@ ARG PYTHON_VERSION=3.13.2
 ARG NINJA_VERSION=1.12.1
 ARG NASM_VERSION=2.16.03
 ARG GIT_VERSION=2.48.1
+ARG ZSTD_VERSION=1.5.7
 ARG WINDOWS_11_SDK_VERSION=22621
 ARG WINDOWS_SDK_VERSION=10.0.${WINDOWS_11_SDK_VERSION}.0
 ARG VC_VERSION=14.43.17.13
+ARG VS_BOOTSTRAP_VERSION=17.13.6
 
 # note: it seems we cannot pass version within any workflow ID to installer, though as I look at VS package cache I see it being done in json payloads! 
 # henceforth we enforce fixed versions with nasty bootstrap URL, more details:
 # https://learn.microsoft.com/en-us/visualstudio/releases/2022/release-history#fixed-version-bootstrappers
-# Default Version: 17.13.6, Channel: Current
+
+# note: if you update BUILD_TOOLS_URL then update also VS_BOOTSTRAP_VERSION
+# default version: ${VS_BOOTSTRAP_VERSION}, channel: Current
+# UPDAT ME: need to find out if there is a way to use VS_BOOTSTRAP_VERSION instead of this nasty URL which matches the bootstrap version
 ARG BUILD_TOOLS_URL=https://download.visualstudio.microsoft.com/download/pr/8fada5c7-8417-4239-acc3-bd499af09222/353141457abcc59eb9c38b2f30084e7271c6bcfb4e185466d98161bada905759/vs_BuildTools.exe
 
 # used for validation & matches internal package payloads, note: requires adjusting BUILD_TOOLS_URL
@@ -22,6 +27,8 @@ ARG MSVC_VERSION=14.43.34808
 ARG CLANGCL_VERSION=19.1.1
 
 ARG IMPL_ARTIFACTS_DIR="C:\artifacts"
+ARG IMPL_COMPRESSION_ARGS=-T0
+
 ARG IMPL_NANO_BASE=mcr.microsoft.com/powershell
 ARG IMPL_NANO_TAG=lts-nanoserver-ltsc2022
 
@@ -56,8 +63,9 @@ SHELL ["powershell", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Co
 # eg. dir name: 14.43.34808 (MSVC_VERSION) but version reported by cl.exe: 19.43.34810
 # more over, all package cache payloads (by default at C:\ProgramData\Microsoft\VisualStudio)
 # use MSVC_VERSION within workflow components ID - none of them contains 19.43.34810
-# which means that most likely there is a bug with versioning cl binaries
 
+# UPDATE ME: once I know more about CL versioning 
+#
 # RUN $version = "$env:MSVC_VERSION" ; `
 # $cl = Join-Path $env:IMPL_ARTIFACTS_DIR "VC\Tools\MSVC\$version\bin\Hostx64\x64\cl.exe" ; `
 # $pipe = & "$cl" 2>&1 ; `
@@ -151,19 +159,55 @@ Invoke-WebRequest -Uri "https://github.com/git-for-windows/git/releases/download
 tar -xf C:\Temp\git.zip -C $env:IMPL_ARTIFACTS_DIR ; `
 Remove-Item C:\Temp\git.zip
 
+# ---------------- ZSTD ----------------
+FROM ${IMPL_NANO_BASE}:${IMPL_NANO_TAG} as zstd
+SHELL ["pwsh", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
+
+ARG ZSTD_VERSION
+ARG IMPL_ARTIFACTS_DIR
+
+RUN Write-Host "Installing Git $env:ZSTD_VERSION" ; `
+New-Item -ItemType Directory -Force -Path C:\Temp, $env:IMPL_ARTIFACTS_DIR ; `
+Invoke-WebRequest -Uri "https://github.com/facebook/zstd/releases/download/v$env:ZSTD_VERSION/zstd-v$env:ZSTD_VERSION-win64.zip" -OutFile C:\Temp\zstd.zip ; `
+tar -xf C:\Temp\zstd.zip -C $env:IMPL_ARTIFACTS_DIR ; `
+Remove-Item C:\Temp\zstd.zip
+
+# ---------------- COMPRESS STEP ----------------
+FROM ${IMPL_NANO_BASE}:${IMPL_NANO_TAG} as compress
+SHELL ["pwsh", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
+
+ARG IMPL_ARTIFACTS_DIR
+COPY --link --from=buildtools ["C:/Program Files (x86)/Windows Kits/10", "C:/pack/WindowsKits10SDK"]
+COPY --link --from=buildtools ["${IMPL_ARTIFACTS_DIR}", "C:/pack/BuildTools"]
+COPY --link --from=cmake ["${IMPL_ARTIFACTS_DIR}", "C:/pack/CMake"]
+COPY --link --from=python ["${IMPL_ARTIFACTS_DIR}", "C:/pack/Python"]
+COPY --link --from=ninja ["${IMPL_ARTIFACTS_DIR}", "C:/pack/Ninja"]
+COPY --link --from=nasm ["${IMPL_ARTIFACTS_DIR}", "C:/pack/Nasm"]
+COPY --link --from=git ["${IMPL_ARTIFACTS_DIR}", "C:/pack/Git"]
+COPY --link --from=zstd ["${IMPL_ARTIFACTS_DIR}", "C:/compress"]
+
+ARG ZSTD_VERSION
+ARG IMPL_COMPRESSION_ARGS
+
+WORKDIR C:\pack
+RUN $dirs = Get-ChildItem -Directory | ForEach-Object { $_.Name }; $dirs; `
+tar -cf artifacts.tar @dirs; dir artifacts.tar; `
+& "C:\compress\zstd-v$env:ZSTD_VERSION-win64\zstd.exe" $env:IMPL_COMPRESSION_ARGS artifacts.tar; dir artifacts.tar.zst; `
+rm artifacts.tar
+
 # ---------------- FINAL IMAGE ----------------
 FROM ${IMPL_NANO_BASE}:${IMPL_NANO_TAG}
 SHELL ["pwsh", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
 USER ContainerAdministrator
 
+LABEL org.opencontainers.image.title="MSVC & ClangCL Build Tools with CMake toolchains"
+LABEL org.opencontainers.image.source=https://github.com/Devsh-Graphics-Programming/docker-nanoserver-msvc-winsdk
+LABEL org.opencontainers.image.description="Build MSVC/ClangCL + WinSDK projects with CMake toolchains in Windows Nano Server!"
+LABEL org.opencontainers.image.licenses=Apache-2.0
+
 ARG IMPL_ARTIFACTS_DIR
-COPY --link --from=buildtools ["C:/Program Files (x86)/Windows Kits/10", "C:/WindowsKits10SDK"]
-COPY --link --from=buildtools ["${IMPL_ARTIFACTS_DIR}", "C:/BuildTools"]
-COPY --link --from=cmake ["${IMPL_ARTIFACTS_DIR}", "C:/CMake"]
-COPY --link --from=python ["${IMPL_ARTIFACTS_DIR}", "C:/Python"]
-COPY --link --from=ninja ["${IMPL_ARTIFACTS_DIR}", "C:/Ninja"]
-COPY --link --from=nasm ["${IMPL_ARTIFACTS_DIR}", "C:/Nasm"]
-COPY --link --from=git ["${IMPL_ARTIFACTS_DIR}", "C:/Git"]
+COPY --link --from=compress ["C:/pack/artifacts.tar.zst", "C:/artifacts.tar.zst"]
+COPY --link --from=zstd ["${IMPL_ARTIFACTS_DIR}", "C:/compress"]
 
 ARG CMAKE_VERSION
 ARG PYTHON_VERSION
@@ -176,6 +220,8 @@ ARG VC_VERSION
 ARG MSVC_VERSION
 ARG CLANGCL_VERSION
 ARG BUILD_TOOLS_URL
+ARG VS_BOOTSTRAP_VERSION
+ARG ZSTD_VERSION
 
 ENV CMAKE_WINDOWS_KITS_10_DIR="C:\WindowsKits10SDK" `
 CMAKE_VERSION=${CMAKE_VERSION} `
@@ -190,11 +236,12 @@ VS_INSTANCE_LOCATION=C:\BuildTools `
 MSVC_VERSION=${MSVC_VERSION} `
 CLANGCL_VERSION=${CLANGCL_VERSION} `
 BUILD_TOOLS_URL=${BUILD_TOOLS_URL} `
+VS_BOOTSTRAP_VERSION=${VS_BOOTSTRAP_VERSION} `
 MSVC_TOOLSET_DIR=C:\BuildTools\VC\Tools\MSVC\${MSVC_VERSION} `
 LLVM_TOOLSET_DIR=C:\BuildTools\VC\Tools\Llvm `
-PATH="C:\Windows\system32;C:\Windows;C:\Program Files\PowerShell;C:\Git\cmd;C:\Git\bin;C:\Git\usr\bin;C:\Git\mingw64\bin;C:\CMake\cmake-${CMAKE_VERSION}-windows-x86_64\bin;C:\Python;C:\Nasm;C:\Nasm\nasm-${NASM_VERSION};C:\Ninja;"
+PATH="C:\Windows\system32;C:\Windows;C:\Program Files\PowerShell;C:\Git\cmd;C:\Git\bin;C:\Git\usr\bin;C:\Git\mingw64\bin;C:\CMake\cmake-${CMAKE_VERSION}-windows-x86_64\bin;C:\Python;C:\Nasm;C:\Nasm\nasm-${NASM_VERSION};C:\Ninja;C:\compress\zstd-v${ZSTD_VERSION}-win64;"
 
-RUN git config --system --add safe.directory '*' 
 COPY . sample/
+COPY unpack.ps1 .
 WORKDIR C:\sample\tests
 CMD ["pwsh.exe", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass"]
