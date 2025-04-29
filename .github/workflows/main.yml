@@ -77,7 +77,7 @@ jobs:
       - name: Nano Container - Unpack Artifacts
         shell: pwsh
         run: |
-          docker exec orphan C:\unpack.ps1
+          docker exec orphan pwsh -c "C:\unpack.ps1"
 
       - name: Nano Container - Configure CMake Project
         shell: pwsh
