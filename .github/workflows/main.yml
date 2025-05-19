@@ -1,95 +1,79 @@
 name: NanoServer MSVC
 
 on:
-  push:
-    branches:
-      - docker-backwards
-  schedule:
-    - cron: '0 0 * * *'
   workflow_dispatch:
 
+env:
+  VS_BOOTSTRAP_VERSION: 17.13.6
+
 jobs:
-  run-nanoserver-msvc-winsdk-x64-build:
-    runs-on: windows-latest
+  build-and-push:
+    runs-on: windows-2022
+
+    outputs:
+      image_tagged: ${{ steps.vars.outputs.image_tagged }}
+
+    defaults:
+      run:
+        shell: pwsh
+
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-      - name: Setup environment
-        shell: pwsh
-        run: |
-          set-mppreference -ExclusionPath c:\
-          set-mppreference -ExclusionExtension *.*
-          set-mppreference -RemediationScheduleDay 8
-          Set-MpPreference -DisableRealtimeMonitoring $true
-          Set-MpPreference -DisableRemovableDriveScanning $true
-          Set-MpPreference -DisableArchiveScanning $true
-          Set-MpPreference -DisableScanningMappedNetworkDrivesForFullScan $true
+    - name: Set image tag
+      id: vars
+      run: |
+        $repo = $env:GITHUB_REPOSITORY.ToLower()
+        $imageBase = "ghcr.io/$repo"
+        $taggedImage = "${imageBase}:${env:VS_BOOTSTRAP_VERSION}"
+        "image_tagged=$taggedImage" >> $env:GITHUB_OUTPUT
 
-      - name: Restore Cached Image TAR
-        uses: actions/cache@v4
-        with:
-          path: cache-image.tar
-          key: docker-image-${{ runner.os }}-${{ github.sha }}
-          restore-keys: |
-            docker-image-${{ runner.os }}-
+    - name: Log in to GHCR
+      run: echo "${{ secrets.CR_PAT }}" | docker login ghcr.io -u $env:GITHUB_ACTOR --password-stdin
 
-      - name: Load Cached Image
-        shell: pwsh
-        id: load_cache
-        run: |
-          if (Test-Path cache-image.tar) {
-            docker load -i cache-image.tar
-            echo "CACHE_HIT=true" >> $env:GITHUB_ENV
-          }
+    - name: Build Image
+      run: |
+        docker build `
+          --isolation process `
+          --build-arg "IMPL_COMPRESSION_OPTIONS=-T0 --ultra" `
+          --build-arg "IMPL_COMPRESSION_LEVEL=22" `
+          --build-arg "VS_BOOTSTRAP_VERSION=$env:VS_BOOTSTRAP_VERSION" `
+          -t "${{ steps.vars.outputs.image_tagged }}" .
 
-      - name: Build Image
-        if: env.CACHE_HIT != 'true'
-        shell: pwsh
-        run: |
-          docker build --isolation process --build-arg "IMPL_COMPRESSION_OPTIONS=-T0 --ultra" --build-arg "IMPL_COMPRESSION_LEVEL=22" -t app:latest .
-          
-      - name: Save Docker Image to TAR
-        if: env.CACHE_HIT != 'true'
-        shell: pwsh
-        run: |
-          docker save -o cache-image.tar app:latest
-      
-      - name: Cache Image TAR
-        if: env.CACHE_HIT != 'true'
-        uses: actions/cache@v4
-        with:
-          path: cache-image.tar
-          key: docker-image-${{ runner.os }}-${{ github.sha }}
-          restore-keys: |
-            docker-image-${{ runner.os }}-
+    - name: Push Image
+      run: |
+        docker push "${{ steps.vars.outputs.image_tagged }}"
 
-      - name: Run Nano Container
-        shell: pwsh
-        run: |
-          docker run --isolation process -di --name orphan app:latest
+  run-nano-container:
+    needs: build-and-push
+    runs-on: windows-2022
 
-      - name: Inspect Nano Container
+    defaults:
+      run:
         shell: pwsh
-        run: |
-          docker inspect orphan
 
-      - name: Nano Container - Unpack Artifacts
-        shell: pwsh
-        run: |
-          docker exec orphan pwsh -c "C:\unpack.ps1"
+    steps:
+    - name: Log in to GHCR
+      run: echo "${{ secrets.CR_PAT }}" | docker login ghcr.io -u $env:GITHUB_ACTOR --password-stdin
 
-      - name: Nano Container - Configure CMake Project
-        shell: pwsh
-        run: |
-          docker exec orphan cmake --preset configure-msvc-winsdk
+    - name: Pull Image
+      run: docker pull "${{ needs.build-and-push.outputs.image_tagged }}"
 
-      - name: Nano Container - Build the Project
-        shell: pwsh
-        run: |
-          docker exec orphan cmake --build --preset build-msvc-winsdk --config Release -- -j 14
+    - name: Run Nano Container
+      run: docker run --isolation process -di --name orphan "${{ needs.build-and-push.outputs.image_tagged }}"
 
-      - name: Nano Container - Test the Project
-        shell: pwsh
-        run: |
-          docker exec -w "C:\sample\tests\build-ct\src" orphan ctest -C Release --stop-on-failure --verbose
+    - name: Inspect Nano Container
+      run: docker inspect orphan
+
+    - name: Nano Container - Unpack Artifacts
+      run: docker exec orphan pwsh -c "C:\unpack.ps1"
+
+    - name: Nano Container - Configure CMake Project
+      run: docker exec orphan cmake --preset configure-msvc-winsdk
+
+    - name: Nano Container - Build the Project
+      run: docker exec orphan cmake --build --preset build-msvc-winsdk --config Release -- -j 14
+
+    - name: Nano Container - Test the Project
+      run: docker exec -w "C:\sample\tests\build-ct\src" orphan ctest -C Release --stop-on-failure --verbose
