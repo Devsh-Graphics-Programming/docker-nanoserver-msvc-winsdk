@@ -12,6 +12,8 @@ ARG WINDOWS_11_SDK_VERSION=22621
 ARG WINDOWS_SDK_VERSION=10.0.${WINDOWS_11_SDK_VERSION}.0
 ARG VC_VERSION=14.43.17.13
 ARG VS_BOOTSTRAP_VERSION=17.13.6
+ARG VULKAN_SDK_VERSION=1.4.313.0
+ARG NINJATRACING_VERSION=0.0.2
 
 # note: it seems we cannot pass version within any workflow ID to installer, though as I look at VS package cache I see it being done in json payloads! 
 # henceforth we enforce fixed versions with nasty bootstrap URL, more details:
@@ -33,24 +35,68 @@ ARG IMPL_COMPRESSION_LEVEL=3
 ARG IMPL_NANO_BASE=mcr.microsoft.com/powershell
 ARG IMPL_NANO_TAG=lts-nanoserver-ltsc2022
 
-# ---------------- BUILD TOOLS ----------------
-FROM mcr.microsoft.com/windows/servercore:ltsc2022 as buildtools
+# ---------------- REDIST ----------------
+FROM mcr.microsoft.com/windows/servercore:ltsc2022 as redist
 
-ARG WINDOWS_11_SDK_VERSION
-ARG VC_VERSION
-ARG MSVC_VERSION
 ARG BUILD_TOOLS_URL
 ARG IMPL_ARTIFACTS_DIR
 
 RUN mkdir C:\Temp && cd C:\Temp `
 && curl -SL --output vs_buildtools.exe %BUILD_TOOLS_URL% `
 && (start /w vs_buildtools.exe --quiet --wait --norestart --nocache `
+--add Microsoft.VisualStudio.Component.VC.Redist.14.Latest `
+--installPath %IMPL_ARTIFACTS_DIR% `
+|| IF "%ERRORLEVEL%"=="3010" EXIT 0)
+
+# ---------------- COMMON BUILD TOOLS ----------------
+FROM redist as bootstrap
+
+ARG BUILD_TOOLS_URL
+ARG IMPL_ARTIFACTS_DIR
+
+RUN (start /w C:\Temp\vs_buildtools.exe --quiet --wait --norestart --nocache `
+--add Microsoft.VisualCpp.DIA.SDK `
+--add Microsoft.VisualStudio.Component.VC.Llvm.Clang `
+--installPath %IMPL_ARTIFACTS_DIR% `
+|| IF "%ERRORLEVEL%"=="3010" EXIT 0)
+
+SHELL ["powershell", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
+
+# version depends on channel (see BUILD_TOOLS_URL)
+ARG CLANGCL_VERSION
+RUN $version = "$env:CLANGCL_VERSION" ; `
+$clangcl = Join-Path $env:IMPL_ARTIFACTS_DIR "VC\Tools\Llvm\bin\clang-cl.exe" ; `
+$pipe = & "$clangcl" -v 2>&1 ; `
+if ($pipe -match "$version") { exit 0 } else { `
+Write-Host "Validation failed due to requested version mismatch! Note: CLANGCL_VERSION = $version" ; `
+Write-Host "$pipe" ; `
+exit -1 `
+}
+
+SHELL ["cmd", "/S", "/C"]
+
+# ---------------- WINDOWS SDK ----------------
+FROM bootstrap as winsdk
+
+ARG WINDOWS_11_SDK_VERSION
+ARG IMPL_ARTIFACTS_DIR
+
+RUN (start /w C:\Temp\vs_buildtools.exe --quiet --wait --norestart --nocache `
+--add Microsoft.VisualStudio.Component.Windows11SDK.%WINDOWS_11_SDK_VERSION% `
+--installPath %IMPL_ARTIFACTS_DIR% `
+|| IF "%ERRORLEVEL%"=="3010" EXIT 0)
+
+# ---------------- VC BUILD TOOLS ----------------
+FROM bootstrap as buildtools
+
+ARG VC_VERSION
+ARG MSVC_VERSION
+ARG IMPL_ARTIFACTS_DIR
+
+RUN (start /w C:\Temp\vs_buildtools.exe --quiet --wait --norestart --nocache `
 --add Microsoft.VisualStudio.Component.VC.%VC_VERSION%.x86.x64 `
 --add Microsoft.VisualStudio.Component.VC.%VC_VERSION%.ATL `
 --add Microsoft.VisualStudio.Component.VC.%VC_VERSION%.MFC `
---add Microsoft.VisualStudio.Component.Windows11SDK.%WINDOWS_11_SDK_VERSION% `
---add Microsoft.VisualCpp.DIA.SDK `
---add Microsoft.VisualStudio.Component.VC.Llvm.Clang `
 --installPath %IMPL_ARTIFACTS_DIR% `
 || IF "%ERRORLEVEL%"=="3010" EXIT 0) && dir %IMPL_ARTIFACTS_DIR%\VC\Tools\MSVC `
 && if exist %IMPL_ARTIFACTS_DIR%\VC\Tools\MSVC\%MSVC_VERSION% ( `
@@ -59,7 +105,7 @@ for /d %i in (%IMPL_ARTIFACTS_DIR%\VC\Tools\MSVC\*) do if /I not "%i"=="%IMPL_AR
 echo "Error: Expected MSVC version directory %MSVC_VERSION% does not exist!" && exit /b 1 `
 )
 
-SHELL ["powershell", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
+# SHELL ["powershell", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
 # important note: msc ships compiler which minor version doesn't match the toolset directory name
 # eg. dir name: 14.43.34808 (MSVC_VERSION) but version reported by cl.exe: 19.43.34810
 # more over, all package cache payloads (by default at C:\ProgramData\Microsoft\VisualStudio)
@@ -76,16 +122,19 @@ SHELL ["powershell", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Co
 # exit -1 `
 # }
 
-# on the other hand here version depends on channel (see BUILD_TOOLS_URL)
-ARG CLANGCL_VERSION
-RUN $version = "$env:CLANGCL_VERSION" ; `
-$clangcl = Join-Path $env:IMPL_ARTIFACTS_DIR "VC\Tools\Llvm\bin\clang-cl.exe" ; `
-$pipe = & "$clangcl" -v 2>&1 ; `
-if ($pipe -match "$version") { exit 0 } else { `
-Write-Host "Validation failed due to requested version mismatch! Note: CLANGCL_VERSION = $version" ; `
-Write-Host "$pipe" ; `
-exit -1 `
-}
+# ---------------- VULKAN SDK ----------------
+FROM redist as vulkan
+
+ARG VULKAN_SDK_VERSION
+ARG IMPL_ARTIFACTS_DIR
+SHELL ["powershell", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
+
+RUN Write-Host "Installing Vulkan SDK $env:VULKAN_SDK_VERSION" ; `
+Remove-Item -Recurse -Force $env:IMPL_ARTIFACTS_DIR -ErrorAction SilentlyContinue ; `
+New-Item -ItemType Directory -Force -Path C:\Temp, $env:IMPL_ARTIFACTS_DIR ; `
+Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/$env:VULKAN_SDK_VERSION/windows/vulkansdk-windows-X64-$env:VULKAN_SDK_VERSION.exe" -OutFile C:\Temp\vulkan-sdk.exe ; `
+& C:\Temp\vulkan-sdk.exe install --root "$env:IMPL_ARTIFACTS_DIR" --default-answer --accept-licenses --confirm-command ; `
+Remove-Item C:\Temp\vulkan-sdk.exe
 
 # ---------------- CMAKE ----------------
 FROM ${IMPL_NANO_BASE}:${IMPL_NANO_TAG} as cmake
@@ -134,6 +183,19 @@ Invoke-WebRequest -Uri "https://github.com/ninja-build/ninja/releases/download/v
 tar -xf C:\Temp\ninja.zip -C $env:IMPL_ARTIFACTS_DIR ; `
 Remove-Item C:\Temp\ninja.zip
 
+# ---------------- NINJA ----------------
+FROM ${IMPL_NANO_BASE}:${IMPL_NANO_TAG} as ninjatracing
+SHELL ["pwsh", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
+
+ARG NINJATRACING_VERSION
+ARG IMPL_ARTIFACTS_DIR
+
+RUN Write-Host "Installing Ninja-Tracing $env:NINJATRACING_VERSION" ; `
+New-Item -ItemType Directory -Force -Path C:\Temp, $env:IMPL_ARTIFACTS_DIR ; `
+Invoke-WebRequest -Uri "https://github.com/Devsh-Graphics-Programming/ninjatracing/archive/refs/tags/$env:NINJATRACING_VERSION.zip" -OutFile C:\Temp\ninjatracing.zip ; `
+tar -xf C:\Temp\ninjatracing.zip -C $env:IMPL_ARTIFACTS_DIR ; `
+Remove-Item C:\Temp\ninjatracing.zip
+
 # ---------------- NASM ----------------
 FROM ${IMPL_NANO_BASE}:${IMPL_NANO_TAG} as nasm
 SHELL ["pwsh", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
@@ -178,11 +240,13 @@ FROM ${IMPL_NANO_BASE}:${IMPL_NANO_TAG} as compress
 SHELL ["pwsh", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
 
 ARG IMPL_ARTIFACTS_DIR
-COPY --link --from=buildtools ["C:/Program Files (x86)/Windows Kits/10", "C:/pack/WindowsKits10SDK"]
+COPY --link --from=winsdk ["C:/Program Files (x86)/Windows Kits/10", "C:/pack/WindowsKits10SDK"]
 COPY --link --from=buildtools ["${IMPL_ARTIFACTS_DIR}", "C:/pack/BuildTools"]
+COPY --link --from=vulkan ["${IMPL_ARTIFACTS_DIR}", "C:/pack/vulkan-sdk"]
 COPY --link --from=cmake ["${IMPL_ARTIFACTS_DIR}", "C:/pack/CMake"]
 COPY --link --from=python ["${IMPL_ARTIFACTS_DIR}", "C:/pack/Python"]
 COPY --link --from=ninja ["${IMPL_ARTIFACTS_DIR}", "C:/pack/Ninja"]
+COPY --link --from=ninjatracing ["${IMPL_ARTIFACTS_DIR}", "C:/pack/NinjaTracing"]
 COPY --link --from=nasm ["${IMPL_ARTIFACTS_DIR}", "C:/pack/Nasm"]
 COPY --link --from=git ["${IMPL_ARTIFACTS_DIR}", "C:/pack/Git"]
 COPY --link --from=zstd ["${IMPL_ARTIFACTS_DIR}", "C:/compress"]
@@ -192,10 +256,17 @@ ARG IMPL_COMPRESSION_OPTIONS
 ARG IMPL_COMPRESSION_LEVEL
 
 WORKDIR C:\pack
-RUN $dirs = Get-ChildItem -Directory | ForEach-Object { $_.Name }; $dirs; `
-tar -cf artifacts.tar @dirs; dir artifacts.tar; $compressionOpts = $env:IMPL_COMPRESSION_OPTIONS -split ' '; `
-& "C:\compress\zstd-v$env:ZSTD_VERSION-win64\zstd.exe" @compressionOpts artifacts.tar "-$env:IMPL_COMPRESSION_LEVEL"; dir artifacts.tar.zst; `
-rm artifacts.tar
+RUN $dirs=Get-ChildItem -Directory|Select-Object -Expand Name; `
+New-Item -ItemType Directory -Force -Path "zst"; `
+foreach($d in $dirs){ `
+Write-Host "=== Compressing $d ==="; `
+tar -cf "${d}-artifacts.tar" "$d"; `
+& "C:\compress\zstd-v$env:ZSTD_VERSION-win64\zstd.exe" `
+$env:IMPL_COMPRESSION_OPTIONS.Split(' ') `
+"${d}-artifacts.tar" "-$env:IMPL_COMPRESSION_LEVEL" `
+"-o" "zst/${d}-artifacts.tar.zst"; `
+Remove-Item "${d}-artifacts.tar"; `
+}
 
 # ---------------- FINAL IMAGE ----------------
 FROM ${IMPL_NANO_BASE}:${IMPL_NANO_TAG}
@@ -208,7 +279,7 @@ LABEL org.opencontainers.image.description="Build MSVC/ClangCL + WinSDK projects
 LABEL org.opencontainers.image.licenses=Apache-2.0
 
 ARG IMPL_ARTIFACTS_DIR
-COPY --link --from=compress ["C:/pack/artifacts.tar.zst", "C:/artifacts.tar.zst"]
+COPY --link --from=compress ["C:/pack/zst", "C:/pack"]
 COPY --link --from=zstd ["${IMPL_ARTIFACTS_DIR}", "C:/compress"]
 
 ARG CMAKE_VERSION
@@ -223,6 +294,8 @@ ARG MSVC_VERSION
 ARG CLANGCL_VERSION
 ARG BUILD_TOOLS_URL
 ARG VS_BOOTSTRAP_VERSION
+ARG VULKAN_SDK_VERSION
+ARG NINJATRACING_VERSION
 ARG ZSTD_VERSION
 
 ENV CMAKE_WINDOWS_KITS_10_DIR="C:\WindowsKits10SDK" `
@@ -239,11 +312,14 @@ MSVC_VERSION=${MSVC_VERSION} `
 CLANGCL_VERSION=${CLANGCL_VERSION} `
 BUILD_TOOLS_URL=${BUILD_TOOLS_URL} `
 VS_BOOTSTRAP_VERSION=${VS_BOOTSTRAP_VERSION} `
+VULKAN_SDK_VERSION=${VULKAN_SDK_VERSION} `
+NINJATRACING_VERSION=${NINJATRACING_VERSION} `
 MSVC_TOOLSET_DIR=C:\BuildTools\VC\Tools\MSVC\${MSVC_VERSION} `
 LLVM_TOOLSET_DIR=C:\BuildTools\VC\Tools\Llvm `
-PATH="C:\Windows\system32;C:\Windows;C:\Program Files\PowerShell;C:\Git\cmd;C:\Git\bin;C:\Git\usr\bin;C:\Git\mingw64\bin;C:\CMake\cmake-${CMAKE_VERSION}-windows-x86_64\bin;C:\Python;C:\Nasm;C:\Nasm\nasm-${NASM_VERSION};C:\Ninja;C:\compress\zstd-v${ZSTD_VERSION}-win64;"
+PATH="C:\Windows\system32;C:\Windows;C:\Program Files\PowerShell;C:\Git\cmd;C:\Git\bin;C:\Git\usr\bin;C:\Git\mingw64\bin;C:\CMake\cmake-${CMAKE_VERSION}-windows-x86_64\bin;C:\Python;C:\Nasm;C:\Nasm\nasm-${NASM_VERSION};C:\Ninja;C:\compress\zstd-v${ZSTD_VERSION}-win64;C:\vulkan-sdk\Bin;C:\NinjaTracing\ninjatracing-${NINJATRACING_VERSION}"
 
 COPY . sample/
 COPY unpack.ps1 .
 WORKDIR C:\sample\tests
+ENTRYPOINT ["pwsh.exe", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-NoExit", "-File", "C:/unpack.ps1"]
 CMD ["pwsh.exe", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass"]
