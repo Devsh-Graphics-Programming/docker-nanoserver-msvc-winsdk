@@ -165,15 +165,17 @@ set(BUILD_MODULE_SEARCH_DIRS
 )
 
 # launchers
-if(WIN32)
-    set(SHELL_LAUNCHER "cmd /C")
-else()
-    set(SHELL_LAUNCHER "sh -c")
-endif()
+string(CONFIGURE [=[
+@echo off
+set "CMAKE=@CMAKE_COMMAND@"
+set "PATH=@BUILD_MODULE_SEARCH_DIRS@;%PATH%"
+%*
+]=] SHELL)
 
-set_property(GLOBAL PROPERTY RULE_LAUNCH_CUSTOM
-  "${CMAKE_COMMAND} -E env --modify PATH=path_list_prepend:${BUILD_MODULE_SEARCH_DIRS} -- ${SHELL_LAUNCHER}"
-)
+set(SHELL_LOCATION "${CMAKE_BINARY_DIR}/shell.cmd")
+file(WRITE "${SHELL_LOCATION}" "${SHELL}")
+
+set_property(GLOBAL PROPERTY RULE_LAUNCH_CUSTOM "${SHELL_LOCATION}")
 
 # NASM
 find_program(CMAKE_ASM_NASM_COMPILER nasm HINTS ENV PATH ENV NASM_DIR NO_CACHE REQUIRED)
