@@ -14,6 +14,7 @@ ARG VC_VERSION=14.43.17.13
 ARG VS_BOOTSTRAP_VERSION=17.13.6
 ARG VULKAN_SDK_VERSION=1.4.313.0
 ARG NINJATRACING_VERSION=0.0.2
+ARG DOCKER_VERSION=28.1.1
 
 # note: it seems we cannot pass version within any workflow ID to installer, though as I look at VS package cache I see it being done in json payloads! 
 # henceforth we enforce fixed versions with nasty bootstrap URL, more details:
@@ -222,6 +223,19 @@ Invoke-WebRequest -Uri "https://github.com/git-for-windows/git/releases/download
 tar -xf C:\Temp\git.zip -C $env:IMPL_ARTIFACTS_DIR ; `
 Remove-Item C:\Temp\git.zip
 
+# ---------------- DOCKER ----------------
+FROM ${IMPL_NANO_BASE}:${IMPL_NANO_TAG} as docker
+SHELL ["pwsh", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
+
+ARG DOCKER_VERSION
+ARG IMPL_ARTIFACTS_DIR
+
+RUN Write-Host "Installing Docker $env:DOCKER_VERSION" ; `
+New-Item -ItemType Directory -Force -Path C:\Temp, $env:IMPL_ARTIFACTS_DIR ; `
+Invoke-WebRequest -Uri "https://download.docker.com/win/static/stable/x86_64/docker-$env:DOCKER_VERSION.zip" -OutFile C:\Temp\docker.zip ; `
+tar -xf C:\Temp\docker.zip -C $env:IMPL_ARTIFACTS_DIR ; `
+Remove-Item C:\Temp\docker.zip
+
 # ---------------- ZSTD ----------------
 FROM ${IMPL_NANO_BASE}:${IMPL_NANO_TAG} as zstd
 SHELL ["pwsh", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
@@ -249,6 +263,7 @@ COPY --link --from=ninja ["${IMPL_ARTIFACTS_DIR}", "C:/pack/Ninja"]
 COPY --link --from=ninjatracing ["${IMPL_ARTIFACTS_DIR}", "C:/pack/NinjaTracing"]
 COPY --link --from=nasm ["${IMPL_ARTIFACTS_DIR}", "C:/pack/Nasm"]
 COPY --link --from=git ["${IMPL_ARTIFACTS_DIR}", "C:/pack/Git"]
+COPY --link --from=docker ["${IMPL_ARTIFACTS_DIR}", "C:/pack/Docker"]
 COPY --link --from=zstd ["${IMPL_ARTIFACTS_DIR}", "C:/compress"]
 
 ARG ZSTD_VERSION
@@ -297,6 +312,7 @@ ARG VS_BOOTSTRAP_VERSION
 ARG VULKAN_SDK_VERSION
 ARG NINJATRACING_VERSION
 ARG ZSTD_VERSION
+ARG DOCKER_VERSION
 
 ENV CMAKE_WINDOWS_KITS_10_DIR="C:\WindowsKits10SDK" `
 CMAKE_VERSION=${CMAKE_VERSION} `
@@ -314,9 +330,11 @@ BUILD_TOOLS_URL=${BUILD_TOOLS_URL} `
 VS_BOOTSTRAP_VERSION=${VS_BOOTSTRAP_VERSION} `
 VULKAN_SDK_VERSION=${VULKAN_SDK_VERSION} `
 NINJATRACING_VERSION=${NINJATRACING_VERSION} `
+ZSTD_VERSION=${ZSTD_VERSION} `
+DOCKER_VERSION=${DOCKER_VERSION} `
 MSVC_TOOLSET_DIR=C:\BuildTools\VC\Tools\MSVC\${MSVC_VERSION} `
 LLVM_TOOLSET_DIR=C:\BuildTools\VC\Tools\Llvm `
-PATH="C:\Windows\system32;C:\Windows;C:\Program Files\PowerShell;C:\Git\cmd;C:\Git\bin;C:\Git\usr\bin;C:\Git\mingw64\bin;C:\CMake\cmake-${CMAKE_VERSION}-windows-x86_64\bin;C:\Python;C:\Nasm;C:\Nasm\nasm-${NASM_VERSION};C:\Ninja;C:\compress\zstd-v${ZSTD_VERSION}-win64;C:\vulkan-sdk\Bin;C:\NinjaTracing\ninjatracing-${NINJATRACING_VERSION}"
+PATH="C:\Windows\system32;C:\Windows;C:\Program Files\PowerShell;C:\Git\cmd;C:\Git\bin;C:\Git\usr\bin;C:\Git\mingw64\bin;C:\CMake\cmake-${CMAKE_VERSION}-windows-x86_64\bin;C:\Python;C:\Nasm;C:\Nasm\nasm-${NASM_VERSION};C:\Ninja;C:\compress\zstd-v${ZSTD_VERSION}-win64;C:\vulkan-sdk\Bin;C:\NinjaTracing\ninjatracing-${NINJATRACING_VERSION};C:\Docker\docker"
 
 COPY . sample/
 COPY unpack.ps1 .

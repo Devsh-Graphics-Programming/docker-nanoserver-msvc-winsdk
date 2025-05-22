@@ -10,6 +10,10 @@ jobs:
   build-and-push:
     runs-on: windows-2022
 
+    env:
+      entry: pwsh.exe
+      cmd: -NoLogo -NoProfile -ExecutionPolicy Bypass
+
     outputs:
       image_tagged: ${{ steps.vars.outputs.image_tagged }}
 
@@ -60,20 +64,20 @@ jobs:
     - name: Pull Image
       run: docker pull "${{ needs.build-and-push.outputs.image_tagged }}"
 
-    - name: Run Nano Container
-      run: docker run --isolation process -di --name orphan "${{ needs.build-and-push.outputs.image_tagged }}"
+    - name: Run Container
+      run: docker run --entrypoint ${{ env.entry }} --isolation process -di --name orphan "${{ needs.build-and-push.outputs.image_tagged }}" ${{ env.cmd }}
 
-    - name: Inspect Nano Container
+    - name: Inspect Container
       run: docker inspect orphan
 
-    - name: Nano Container - Unpack Artifacts
-      run: docker exec orphan pwsh -c "C:\unpack.ps1"
+    - name: Container – Unpack Packages
+      run: docker exec orphan ${{ env.entry }} ${{ env.cmd }} C:\unpack.ps1
 
-    - name: Nano Container - Configure CMake Project
-      run: docker exec orphan cmake --preset configure-msvc-winsdk
+    - name: Container – Configure CMake Project
+      run: docker exec orphan ${{ env.entry }} ${{ env.cmd }} -Command cmake --preset configure-msvc-winsdk
 
-    - name: Nano Container - Build the Project
-      run: docker exec orphan cmake --build --preset build-msvc-winsdk --config Release -- -j 14
+    - name: Container – Build Sample Project
+      run: docker exec orphan ${{ env.entry }} ${{ env.cmd }} -Command cmake --build --preset build-msvc-winsdk --config Release -- -j 14
 
-    - name: Nano Container - Test the Project
-      run: docker exec -w "C:\sample\tests\build-ct\src" orphan ctest -C Release --stop-on-failure --verbose
+    - name: Container – Test Sample Project
+      run: docker exec -w "C:\sample\tests\build-ct\src" orphan ${{ env.entry }} ${{ env.cmd }} -Command ctest -C Release --stop-on-failure --verbose
